@@ -1,0 +1,29 @@
+# THIS FILE IS A TEMPLATE - COPY TO .env AND FILL WITH REAL VALUES
+# NEVER COMMIT REAL .env FILE TO GIT!
+
+# Telegram Bot Token (get from @BotFather)
+BOT_TOKEN=YOUR_BOT_TOKEN_HERE
+
+# Database URL (PostgreSQL async format)
+# Format: postgresql+asyncpg://username:password@host:port/database
+DB_URL=postgresql+asyncpg://user:password@localhost:5432/bot_database
+
+# Comma-separated list of admin Telegram IDs
+ADMIN_IDS=123456789,987654321
+
+# Base URL for the bot (used for webhooks, mini app links)
+# Example: https://yourdomain.com or https://your-deployment.herokuapp.com
+BASE_URL=https://yourdomain.com
+
+# Secret key for JWT tokens (MUST be strong and random!)
+# Generate with: python -c "import secrets; print(secrets.token_hex(32))"
+SECRET_KEY=your_long_random_secret_key_here_at_least_32_chars
+
+# CORS allowed origins (comma-separated)
+# Example: https://yourdomain.com,https://app.yourdomain.com
+ALLOWED_ORIGINS=http://localhost:3000,http://localhost:8000,https://yourdomain.com
+
+# Redis configuration
+REDIS_HOST=localhost
+REDIS_PORT=6379
+REDIS_DB=0

@@ -1,0 +1,1689 @@
+<!DOCTYPE html>
+<html lang="ru">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Digital Arena — Цифровая Экосистема Киберспорта Узбекистана</title>
+    <meta name="description"
+        content="Digital Arena — единая цифровая платформа для легализации и развития индустрии компьютерных клубов Узбекистана. Фискальный контроль, верификация, аналитика.">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap"
+        rel="stylesheet">
+    <link rel="icon" type="image/svg+xml"
+        href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎮</text></svg>">
+    <style>
+        :root {
+            --primary: #00d4ff;
+            --secondary: #a855f7;
+            --accent: #ff6b2b;
+            --success: #00e68a;
+            --danger: #ff3d71;
+            --bg: #050510;
+            --surface: rgba(18, 18, 36, 0.65);
+            --surface-solid: #10101f;
+            --border: rgba(255, 255, 255, 0.06);
+            --text: #f0f2f5;
+            --text2: rgba(255, 255, 255, 0.55);
+            --text3: rgba(255, 255, 255, 0.3);
+            --radius: 16px;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box
+        }
+
+        html {
+            scroll-behavior: smooth
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            overflow-x: hidden;
+            line-height: 1.6
+        }
+
+        /* === BG === */
+        .bg-grid {
+            position: fixed;
+            inset: 0;
+            background-image: linear-gradient(rgba(255, 255, 255, .015) 1px, transparent 1px), linear-gradient(90deg, rgba(255, 255, 255, .015) 1px, transparent 1px);
+            background-size: 64px 64px;
+            pointer-events: none;
+            z-index: 0
+        }
+
+        .bg-orb {
+            position: fixed;
+            border-radius: 50%;
+            filter: blur(100px);
+            opacity: .12;
+            pointer-events: none;
+            z-index: 0
+        }
+
+        .bg-orb-1 {
+            width: 700px;
+            height: 700px;
+            top: -250px;
+            left: -200px;
+            background: var(--secondary)
+        }
+
+        .bg-orb-2 {
+            width: 500px;
+            height: 500px;
+            bottom: -150px;
+            right: -150px;
+            background: var(--primary)
+        }
+
+        .bg-orb-3 {
+            width: 300px;
+            height: 300px;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: var(--accent)
+        }
+
+        /* === NAV === */
+        .nav {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 100;
+            padding: 12px 0;
+            background: rgba(5, 5, 16, .75);
+            backdrop-filter: blur(24px);
+            border-bottom: 1px solid var(--border);
+            transition: all .3s
+        }
+
+        .nav.scrolled {
+            padding: 8px 0;
+            background: rgba(5, 5, 16, .92)
+        }
+
+        .nav-inner {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            text-decoration: none
+        }
+
+        .logo-icon {
+            font-size: 26px
+        }
+
+        .logo-text {
+            font-size: 22px;
+            font-weight: 800;
+            color: #fff;
+            letter-spacing: -.5px
+        }
+
+        .logo-accent {
+            color: var(--primary)
+        }
+
+        .nav-links {
+            display: flex;
+            align-items: center;
+            gap: 28px
+        }
+
+        .nav-links a {
+            color: var(--text2);
+            text-decoration: none;
+            font-size: 13px;
+            font-weight: 500;
+            transition: color .3s
+        }
+
+        .nav-links a:hover {
+            color: #fff
+        }
+
+        .nav-cta {
+            background: rgba(0, 212, 255, .1) !important;
+            color: var(--primary) !important;
+            padding: 8px 18px;
+            border-radius: 10px;
+            border: 1px solid rgba(0, 212, 255, .25);
+            font-weight: 600 !important;
+            transition: all .3s !important
+        }
+
+        .nav-cta:hover {
+            background: rgba(0, 212, 255, .2) !important;
+            box-shadow: 0 0 20px rgba(0, 212, 255, .2)
+        }
+
+        .lang-btn {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            color: var(--text2);
+            padding: 6px 12px;
+            border-radius: 8px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all .3s
+        }
+
+        .lang-btn:hover {
+            color: #fff;
+            border-color: var(--primary)
+        }
+
+        .burger {
+            display: none;
+            flex-direction: column;
+            gap: 5px;
+            cursor: pointer;
+            padding: 4px
+        }
+
+        .burger span {
+            width: 22px;
+            height: 2px;
+            background: #fff;
+            border-radius: 2px;
+            transition: all .3s
+        }
+
+        /* === SECTIONS === */
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 24px;
+            position: relative;
+            z-index: 1
+        }
+
+        section {
+            position: relative
+        }
+
+        /* Reveal animations */
+        .reveal {
+            opacity: 0;
+            transform: translateY(40px);
+            transition: all .7s cubic-bezier(.16, 1, .3, 1)
+        }
+
+        .reveal.visible {
+            opacity: 1;
+            transform: translateY(0)
+        }
+
+        .reveal-delay-1 {
+            transition-delay: .1s
+        }
+
+        .reveal-delay-2 {
+            transition-delay: .2s
+        }
+
+        .reveal-delay-3 {
+            transition-delay: .3s
+        }
+
+        .reveal-delay-4 {
+            transition-delay: .4s
+        }
+
+        .section-badge {
+            display: inline-block;
+            background: rgba(168, 85, 247, .1);
+            color: var(--secondary);
+            padding: 6px 16px;
+            border-radius: 100px;
+            font-size: 11px;
+            font-weight: 700;
+            border: 1px solid rgba(168, 85, 247, .2);
+            margin-bottom: 16px;
+            text-transform: uppercase;
+            letter-spacing: 1px
+        }
+
+        .section-title {
+            font-size: clamp(28px, 4.5vw, 44px);
+            font-weight: 800;
+            line-height: 1.15;
+            letter-spacing: -1px;
+            margin-bottom: 12px
+        }
+
+        .section-desc {
+            font-size: 15px;
+            color: var(--text2);
+            max-width: 560px
+        }
+
+        .gradient-text {
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent
+        }
+
+        /* === HERO === */
+        .hero {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            padding: 100px 24px 60px;
+            max-width: 1200px;
+            margin: 0 auto;
+            gap: 48px;
+            z-index: 1;
+            position: relative
+        }
+
+        .hero-content {
+            flex: 1
+        }
+
+        .hero-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(255, 107, 43, .08);
+            color: var(--accent);
+            padding: 8px 18px;
+            border-radius: 100px;
+            font-size: 13px;
+            font-weight: 600;
+            border: 1px solid rgba(255, 107, 43, .15);
+            margin-bottom: 20px;
+            animation: fadeUp .6s ease both
+        }
+
+        .hero-title {
+            font-size: clamp(34px, 5.5vw, 58px);
+            font-weight: 900;
+            line-height: 1.08;
+            letter-spacing: -2px;
+            margin-bottom: 20px;
+            animation: fadeUp .6s ease .1s both
+        }
+
+        .hero-sub {
+            font-size: 17px;
+            color: var(--text2);
+            max-width: 480px;
+            margin-bottom: 32px;
+            animation: fadeUp .6s ease .2s both
+        }
+
+        .hero-btns {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            margin-bottom: 48px;
+            animation: fadeUp .6s ease .3s both
+        }
+
+        .btn-primary {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: var(--primary);
+            color: #000;
+            padding: 14px 28px;
+            border-radius: 14px;
+            font-size: 15px;
+            font-weight: 700;
+            text-decoration: none;
+            transition: all .3s;
+            box-shadow: 0 0 24px rgba(0, 212, 255, .25);
+            border: none;
+            cursor: pointer
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 0 40px rgba(0, 212, 255, .4)
+        }
+
+        .btn-outline {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: transparent;
+            color: var(--text2);
+            padding: 14px 28px;
+            border-radius: 14px;
+            font-size: 15px;
+            font-weight: 600;
+            text-decoration: none;
+            transition: all .3s;
+            border: 1px solid var(--border)
+        }
+
+        .btn-outline:hover {
+            color: #fff;
+            border-color: rgba(255, 255, 255, .15)
+        }
+
+        /* trust strip */
+        .hero-trust {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            animation: fadeUp .6s ease .4s both
+        }
+
+        .trust-item {
+            text-align: center
+        }
+
+        .trust-num {
+            display: block;
+            font-size: 24px;
+            font-weight: 800;
+            color: var(--primary)
+        }
+
+        .trust-label {
+            font-size: 11px;
+            color: var(--text3);
+            text-transform: uppercase;
+            letter-spacing: .5px
+        }
+
+        .trust-div {
+            width: 1px;
+            height: 36px;
+            background: var(--border)
+        }
+
+        /* Live counter badge */
+        .live-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(0, 230, 138, .06);
+            border: 1px solid rgba(0, 230, 138, .12);
+            padding: 10px 20px;
+            border-radius: 12px;
+            font-size: 14px;
+            color: var(--success);
+            margin-top: 24px;
+            animation: fadeUp .6s ease .5s both
+        }
+
+        .live-dot {
+            width: 8px;
+            height: 8px;
+            background: var(--success);
+            border-radius: 50%;
+            box-shadow: 0 0 8px var(--success);
+            animation: blink 1.5s infinite
+        }
+
+        /* Phone mockup */
+        .hero-visual {
+            flex: 0 0 300px;
+            animation: fadeUp .8s ease .3s both
+        }
+
+        .phone {
+            background: #13132a;
+            border-radius: 28px;
+            padding: 10px;
+            border: 2px solid rgba(255, 255, 255, .08);
+            box-shadow: 0 40px 80px rgba(0, 0, 0, .5), 0 0 40px rgba(0, 212, 255, .08);
+            overflow: hidden;
+            position: relative
+        }
+
+        .phone-screen {
+            background: var(--bg);
+            border-radius: 20px;
+            padding: 14px;
+            min-height: 460px;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            overflow: hidden
+        }
+
+        .demo-step {
+            position: absolute;
+            inset: 14px;
+            display: flex;
+            flex-direction: column;
+            opacity: 0;
+            transform: translateX(40px);
+            transition: all .5s cubic-bezier(.4, 0, .2, 1);
+            pointer-events: none
+        }
+
+        .demo-step.active {
+            opacity: 1;
+            transform: translateX(0);
+            pointer-events: auto
+        }
+
+        .demo-step.exit {
+            opacity: 0;
+            transform: translateX(-40px)
+        }
+
+        .ph-header {
+            text-align: center;
+            font-weight: 700;
+            font-size: 14px;
+            padding: 10px;
+            border-bottom: 1px solid var(--border);
+            margin-bottom: 10px
+        }
+
+        .ph-step-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: rgba(0, 212, 255, .08);
+            color: var(--primary);
+            padding: 4px 12px;
+            border-radius: 8px;
+            font-size: 10px;
+            font-weight: 700;
+            margin-bottom: 12px;
+            border: 1px solid rgba(0, 212, 255, .15);
+            text-transform: uppercase;
+            letter-spacing: .5px
+        }
+
+        .ph-club {
+            background: var(--surface);
+            padding: 14px;
+            border-radius: 14px;
+            margin-bottom: 8px;
+            border: 1px solid var(--border);
+            transition: all .3s
+        }
+
+        .ph-club.selected {
+            border-color: var(--primary);
+            box-shadow: 0 0 12px rgba(0, 212, 255, .15)
+        }
+
+        .ph-club-name {
+            font-weight: 700;
+            font-size: 14px;
+            margin-bottom: 2px
+        }
+
+        .ph-club-meta {
+            display: flex;
+            justify-content: space-between;
+            align-items: center
+        }
+
+        .ph-club-addr {
+            font-size: 10px;
+            color: var(--text3)
+        }
+
+        .ph-club-rate {
+            font-size: 10px;
+            color: #fbbf24
+        }
+
+        .ph-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 6px;
+            flex: 1
+        }
+
+        .ph-pc {
+            aspect-ratio: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 10px;
+            font-size: 10px;
+            font-weight: 600;
+            border: 1px solid var(--border);
+            transition: all .3s
+        }
+
+        .ph-pc.on {
+            background: rgba(0, 212, 255, .05);
+            color: var(--primary)
+        }
+
+        .ph-pc.off {
+            background: rgba(255, 61, 113, .04);
+            color: rgba(255, 61, 113, .4);
+            opacity: .5
+        }
+
+        .ph-pc.sel {
+            background: rgba(0, 212, 255, .15);
+            border-color: var(--primary);
+            box-shadow: 0 0 12px rgba(0, 212, 255, .25);
+            animation: pulse 2s infinite
+        }
+
+        .ph-bottom {
+            margin-top: 10px;
+            background: var(--surface);
+            padding: 14px;
+            border-radius: 14px;
+            border: 1px solid rgba(0, 212, 255, .15)
+        }
+
+        .ph-pc-name {
+            font-size: 12px;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: var(--primary)
+        }
+
+        .ph-btn {
+            background: var(--primary);
+            color: #000;
+            text-align: center;
+            padding: 10px;
+            border-radius: 10px;
+            font-weight: 700;
+            font-size: 12px;
+            letter-spacing: .5px;
+            transition: all .3s
+        }
+
+        .ph-btn.success {
+            background: var(--success);
+            box-shadow: 0 0 16px rgba(0, 230, 138, .3)
+        }
+
+        /* Time picker demo */
+        .ph-time-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 6px;
+            margin-bottom: 12px
+        }
+
+        .ph-time-slot {
+            padding: 10px 4px;
+            text-align: center;
+            border-radius: 10px;
+            font-size: 11px;
+            font-weight: 600;
+            border: 1px solid var(--border);
+            color: var(--text2);
+            transition: all .3s
+        }
+
+        .ph-time-slot.sel {
+            border-color: var(--primary);
+            color: var(--primary);
+            background: rgba(0, 212, 255, .1);
+            box-shadow: 0 0 8px rgba(0, 212, 255, .2)
+        }
+
+        .ph-time-slot.off {
+            opacity: .3
+        }
+
+        .ph-dur {
+            display: flex;
+            gap: 6px;
+            margin-bottom: 12px
+        }
+
+        .ph-dur-btn {
+            flex: 1;
+            padding: 8px;
+            text-align: center;
+            border-radius: 8px;
+            font-size: 11px;
+            font-weight: 600;
+            border: 1px solid var(--border);
+            color: var(--text2)
+        }
+
+        .ph-dur-btn.sel {
+            border-color: var(--secondary);
+            color: var(--secondary);
+            background: rgba(168, 85, 247, .1)
+        }
+
+        /* Confirmation demo */
+        .ph-confirm-icon {
+            font-size: 48px;
+            text-align: center;
+            margin: 8px 0
+        }
+
+        .ph-confirm-title {
+            text-align: center;
+            font-size: 16px;
+            font-weight: 800;
+            margin-bottom: 16px;
+            color: var(--success)
+        }
+
+        .ph-confirm-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid var(--border);
+            font-size: 12px
+        }
+
+        .ph-confirm-row span:first-child {
+            color: var(--text3)
+        }
+
+        .ph-confirm-row span:last-child {
+            font-weight: 600
+        }
+
+        .ph-confirm-code {
+            text-align: center;
+            margin-top: 16px;
+            padding: 12px;
+            background: rgba(0, 230, 138, .06);
+            border: 1px solid rgba(0, 230, 138, .15);
+            border-radius: 10px;
+            font-size: 18px;
+            font-weight: 800;
+            color: var(--success);
+            letter-spacing: 2px
+        }
+
+        /* Progress dots */
+        .demo-progress {
+            display: flex;
+            justify-content: center;
+            gap: 6px;
+            padding: 8px 0 4px;
+            position: absolute;
+            bottom: 4px;
+            left: 0;
+            right: 0
+        }
+
+        .demo-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: var(--text3);
+            transition: all .3s
+        }
+
+        .demo-dot.active {
+            background: var(--primary);
+            width: 18px;
+            border-radius: 3px
+        }
+
+        @keyframes pulse {
+
+            0%,
+            100% {
+                box-shadow: 0 0 5px rgba(0, 212, 255, .2)
+            }
+
+            50% {
+                box-shadow: 0 0 18px rgba(0, 212, 255, .4)
+            }
+        }
+
+        @keyframes fadeUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px)
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0)
+            }
+        }
+
+        @keyframes blink {
+
+            0%,
+            100% {
+                opacity: 1
+            }
+
+            50% {
+                opacity: .3
+            }
+        }
+
+        /* === PROBLEM === */
+        .cards-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            gap: 20px
+        }
+
+        .card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 28px;
+            transition: all .4s cubic-bezier(.4, 0, .2, 1);
+            backdrop-filter: blur(10px)
+        }
+
+        .card:hover {
+            background: rgba(24, 24, 48, .8);
+            border-color: rgba(0, 212, 255, .15);
+            transform: translateY(-4px);
+            box-shadow: 0 16px 40px rgba(0, 0, 0, .25)
+        }
+
+        .card-icon {
+            font-size: 32px;
+            margin-bottom: 16px
+        }
+
+        .card h3 {
+            font-size: 16px;
+            font-weight: 700;
+            margin-bottom: 8px
+        }
+
+        .card p {
+            font-size: 13px;
+            color: var(--text2);
+            line-height: 1.6
+        }
+
+        /* === STEPS === */
+        .steps {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 28px
+        }
+
+        .step {
+            text-align: center;
+            padding: 36px 20px
+        }
+
+        .step-num {
+            font-size: 56px;
+            font-weight: 900;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            line-height: 1;
+            margin-bottom: 16px
+        }
+
+        .step h3 {
+            font-size: 17px;
+            font-weight: 700;
+            margin-bottom: 10px
+        }
+
+        .step p {
+            font-size: 13px;
+            color: var(--text2)
+        }
+
+        /* === GOV FEATURES 2x3 grid === */
+        .gov-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px
+        }
+
+        /* === CLUBS SECTION === */
+        .benefits {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px
+        }
+
+        .benefit {
+            display: flex;
+            gap: 16px;
+            align-items: flex-start;
+            padding: 24px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            transition: all .3s;
+            backdrop-filter: blur(10px)
+        }
+
+        .benefit:hover {
+            border-color: rgba(168, 85, 247, .2);
+            background: rgba(24, 24, 48, .8)
+        }
+
+        .benefit-icon {
+            font-size: 28px;
+            flex-shrink: 0
+        }
+
+        .benefit h4 {
+            font-size: 15px;
+            font-weight: 700;
+            margin-bottom: 4px
+        }
+
+        .benefit p {
+            font-size: 13px;
+            color: var(--text2)
+        }
+
+        /* === STATS === */
+        .stats-strip {
+            padding: 60px 0;
+            background: linear-gradient(180deg, transparent, rgba(0, 212, 255, .02), transparent)
+        }
+
+        .stats-row {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 20px
+        }
+
+        .stat {
+            text-align: center;
+            padding: 32px 16px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            transition: all .3s;
+            backdrop-filter: blur(10px)
+        }
+
+        .stat:hover {
+            border-color: rgba(0, 212, 255, .2);
+            box-shadow: 0 0 20px rgba(0, 212, 255, .08)
+        }
+
+        .stat-num {
+            font-size: 40px;
+            font-weight: 900;
+            color: var(--primary);
+            margin-bottom: 6px
+        }
+
+        .stat-label {
+            font-size: 13px;
+            color: var(--text2)
+        }
+
+        /* === PILOT === */
+        .pilot-section {
+            padding: 100px 0;
+            background: linear-gradient(180deg, transparent, rgba(168, 85, 247, .02), transparent)
+        }
+
+        .pilot-header {
+            text-align: center;
+            margin-bottom: 48px
+        }
+
+        .timeline {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 20px
+        }
+
+        .phase {
+            position: relative;
+            padding: 28px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            transition: all .3s;
+            backdrop-filter: blur(10px)
+        }
+
+        .phase:hover {
+            border-color: rgba(168, 85, 247, .2);
+            transform: translateY(-4px)
+        }
+
+        .phase-num {
+            font-size: 11px;
+            font-weight: 700;
+            color: var(--secondary);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 8px
+        }
+
+        .phase h4 {
+            font-size: 15px;
+            font-weight: 700;
+            margin-bottom: 6px
+        }
+
+        .phase p {
+            font-size: 12px;
+            color: var(--text2)
+        }
+
+        .phase-label {
+            display: inline-block;
+            margin-top: 10px;
+            font-size: 11px;
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-weight: 600
+        }
+
+        .phase-done {
+            background: rgba(0, 230, 138, .1);
+            color: var(--success);
+            border: 1px solid rgba(0, 230, 138, .15)
+        }
+
+        .phase-active {
+            background: rgba(0, 212, 255, .1);
+            color: var(--primary);
+            border: 1px solid rgba(0, 212, 255, .15);
+            animation: blink 2s infinite
+        }
+
+        .phase-next {
+            background: rgba(255, 255, 255, .05);
+            color: var(--text3);
+            border: 1px solid var(--border)
+        }
+
+        /* === TESTIMONIALS === */
+        .testimonials {
+            padding: 100px 0
+        }
+
+        .testi-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px
+        }
+
+        .testi {
+            padding: 28px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            transition: all .3s;
+            backdrop-filter: blur(10px)
+        }
+
+        .testi:hover {
+            border-color: rgba(0, 212, 255, .15);
+            transform: translateY(-4px)
+        }
+
+        .testi-stars {
+            color: #fbbf24;
+            margin-bottom: 12px;
+            font-size: 14px
+        }
+
+        .testi-text {
+            font-size: 14px;
+            color: var(--text2);
+            margin-bottom: 16px;
+            font-style: italic;
+            line-height: 1.6
+        }
+
+        .testi-author {
+            display: flex;
+            align-items: center;
+            gap: 12px
+        }
+
+        .testi-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            background: rgba(0, 212, 255, .1);
+            border: 1px solid rgba(0, 212, 255, .2)
+        }
+
+        .testi-name {
+            font-size: 13px;
+            font-weight: 700
+        }
+
+        .testi-role {
+            font-size: 11px;
+            color: var(--text3)
+        }
+
+        /* === CTA === */
+        .cta {
+            padding: 100px 0
+        }
+
+        .cta-card {
+            text-align: center;
+            background: linear-gradient(135deg, rgba(0, 212, 255, .04), rgba(168, 85, 247, .04));
+            border: 1px solid rgba(0, 212, 255, .1);
+            border-radius: 24px;
+            padding: 64px 32px;
+            position: relative;
+            overflow: hidden
+        }
+
+        .cta-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: linear-gradient(90deg, var(--primary), var(--secondary))
+        }
+
+        .cta-card h2 {
+            font-size: clamp(24px, 4vw, 36px);
+            font-weight: 800;
+            margin-bottom: 12px
+        }
+
+        .cta-card p {
+            font-size: 16px;
+            color: var(--text2);
+            margin-bottom: 28px
+        }
+
+        /* === FOOTER === */
+        .footer {
+            padding: 48px 0;
+            border-top: 1px solid var(--border)
+        }
+
+        .footer-inner {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 16px
+        }
+
+        .footer-brand {
+            display: flex;
+            align-items: center;
+            gap: 8px
+        }
+
+        .footer-brand span {
+            font-size: 16px;
+            font-weight: 700
+        }
+
+        .footer-links {
+            display: flex;
+            gap: 20px
+        }
+
+        .footer-links a {
+            color: var(--text2);
+            text-decoration: none;
+            font-size: 13px;
+            transition: color .3s
+        }
+
+        .footer-links a:hover {
+            color: var(--primary)
+        }
+
+        .footer-copy {
+            font-size: 11px;
+            color: var(--text3)
+        }
+
+        /* === MOBILE === */
+        .mobile-menu {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(5, 5, 16, .96);
+            z-index: 99;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 28px
+        }
+
+        .mobile-menu.open {
+            display: flex
+        }
+
+        .mobile-menu a {
+            color: #fff;
+            font-size: 20px;
+            text-decoration: none;
+            font-weight: 600
+        }
+
+        @media(max-width:1024px) {
+
+            .gov-grid,
+            .testi-grid {
+                grid-template-columns: repeat(2, 1fr)
+            }
+
+            .stats-row {
+                grid-template-columns: repeat(2, 1fr)
+            }
+
+            .timeline {
+                grid-template-columns: repeat(2, 1fr)
+            }
+        }
+
+        @media(max-width:768px) {
+            .hero {
+                flex-direction: column;
+                padding-top: 90px;
+                text-align: center
+            }
+
+            .hero-sub {
+                margin: 0 auto 32px
+            }
+
+            .hero-btns {
+                justify-content: center
+            }
+
+            .hero-trust {
+                justify-content: center
+            }
+
+            .hero-visual {
+                flex: none;
+                width: 260px
+            }
+
+            .cards-grid,
+            .gov-grid,
+            .testi-grid {
+                grid-template-columns: 1fr
+            }
+
+            .steps {
+                grid-template-columns: 1fr
+            }
+
+            .benefits {
+                grid-template-columns: 1fr
+            }
+
+            .timeline {
+                grid-template-columns: 1fr
+            }
+
+            .nav-links {
+                display: none
+            }
+
+            .burger {
+                display: flex
+            }
+
+            .footer-inner {
+                flex-direction: column;
+                text-align: center
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="bg-grid"></div>
+    <div class="bg-orb bg-orb-1"></div>
+    <div class="bg-orb bg-orb-2"></div>
+    <div class="bg-orb bg-orb-3"></div>
+
+    <!-- NAV -->
+    <nav class="nav" id="nav">
+        <div class="nav-inner">
+            <a class="logo" href="#">
+                <span class="logo-icon">🎮</span>
+                <span class="logo-text">Digital<span class="logo-accent">Arena</span></span>
+            </a>
+            <div class="nav-links">
+                <a href="#how">Как работает</a>
+                <a href="#contact">Контакты</a>
+                <a href="about.html">О проекте</a>
+                <a href="dashboard.html" class="nav-cta">📊 Дашборд →</a>
+            </div>
+            <div class="burger" onclick="toggleMenu()">
+                <span></span><span></span><span></span>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Mobile Menu -->
+    <div class="mobile-menu" id="mobileMenu">
+        <a href="#how" onclick="toggleMenu()">Как работает</a>
+        <a href="#contact" onclick="toggleMenu()">Контакты</a>
+        <a href="about.html" onclick="toggleMenu()">О проекте</a>
+        <a href="booking.html" onclick="toggleMenu()">📱 Живое демо</a>
+        <a href="dashboard.html" onclick="toggleMenu()">📊 Дашборд</a>
+    </div>
+
+    <!-- HERO -->
+    <section class="hero">
+        <div class="hero-content">
+            <div class="hero-badge" data-i18n="hero.badge">🏛️ Проект для Министерства Цифровых Технологий</div>
+            <h1 class="hero-title">
+                <span data-i18n="hero.title1">Цифровая экосистема</span><br>
+                <span class="gradient-text" data-i18n="hero.title2">киберспорта Узбекистана</span>
+            </h1>
+            <p class="hero-sub" data-i18n="hero.sub">
+                Digital Arena — единая платформа для вывода индустрии компьютерных клубов из теневой экономики.
+                Фискальный контроль, верификация игроков и Big Data для развития рынка.
+            </p>
+            <div class="hero-btns">
+                <a href="booking.html" class="btn-primary"
+                    style="background:linear-gradient(135deg,var(--primary),var(--secondary));color:#0a0e1a;font-weight:700">📱
+                    Попробовать демо</a>
+                <a href="#how" class="btn-outline">Как это работает ↓</a>
+            </div>
+            <div class="hero-trust">
+                <div class="trust-item"><span class="trust-num">$32-64M</span><span class="trust-label">Объём
+                        рынка/год</span></div>
+                <div class="trust-div"></div>
+                <div class="trust-item"><span class="trust-num">1000+</span><span class="trust-label">Клубов в
+                        стране</span></div>
+                <div class="trust-div"></div>
+                <div class="trust-item"><span class="trust-num">70%</span><span class="trust-label">Теневой
+                        оборот</span></div>
+            </div>
+            <div class="live-badge">
+                <span class="live-dot"></span>
+                <span data-i18n="hero.live">Сейчас играют:</span> <strong id="liveCount">12,843</strong> <span
+                    data-i18n="hero.live2">человек</span>
+            </div>
+        </div>
+        <div class="hero-visual">
+            <div class="phone">
+                <div class="phone-screen" id="demoScreen">
+                    <!-- Step 1: Choose Club -->
+                    <div class="demo-step active" id="demoStep1">
+                        <div class="ph-header">Digital Arena</div>
+                        <div class="ph-step-badge" data-i18n="demo.s1">Шаг 1 — Выберите клуб</div>
+                        <div class="ph-club selected">
+                            <div class="ph-club-name">CyberArena Pro</div>
+                            <div class="ph-club-meta">
+                                <span class="ph-club-addr">📍 ул. Амира Темура</span>
+                                <span class="ph-club-rate">★ 4.8</span>
+                            </div>
+                        </div>
+                        <div class="ph-club">
+                            <div class="ph-club-name">GameZone</div>
+                            <div class="ph-club-meta">
+                                <span class="ph-club-addr">📍 м. Космонавтлар</span>
+                                <span class="ph-club-rate">★ 4.5</span>
+                            </div>
+                        </div>
+                        <div class="ph-club">
+                            <div class="ph-club-name">ProGaming</div>
+                            <div class="ph-club-meta">
+                                <span class="ph-club-addr">📍 Чиланзар, кв. 10</span>
+                                <span class="ph-club-rate">★ 4.7</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Step 2: Choose PC -->
+                    <div class="demo-step" id="demoStep2">
+                        <div class="ph-header">CyberArena Pro</div>
+                        <div class="ph-step-badge" data-i18n="demo.s2">Шаг 2 — Выберите ПК</div>
+                        <div class="ph-grid">
+                            <div class="ph-pc on">PC-1</div>
+                            <div class="ph-pc on">PC-2</div>
+                            <div class="ph-pc off">PC-3</div>
+                            <div class="ph-pc on">PC-4</div>
+                            <div class="ph-pc on">PC-5</div>
+                            <div class="ph-pc off">PC-6</div>
+                            <div class="ph-pc sel">PC-7</div>
+                            <div class="ph-pc on">PC-8</div>
+                            <div class="ph-pc on">PC-9</div>
+                        </div>
+                        <div class="ph-bottom">
+                            <div class="ph-pc-name">🖥 PC-7 • RTX 4070 Ti</div>
+                            <div class="ph-btn">ДАЛЕЕ →</div>
+                        </div>
+                    </div>
+
+                    <!-- Step 3: Choose Time -->
+                    <div class="demo-step" id="demoStep3">
+                        <div class="ph-header" data-i18n="demo.s3h">Время и дата</div>
+                        <div class="ph-step-badge" data-i18n="demo.s3">Шаг 3 — Выберите время</div>
+                        <div style="font-size:12px;color:var(--text2);margin-bottom:8px;font-weight:600">📅 Сегодня, 16
+                            февраля</div>
+                        <div class="ph-time-grid">
+                            <div class="ph-time-slot off">10:00</div>
+                            <div class="ph-time-slot off">11:00</div>
+                            <div class="ph-time-slot">12:00</div>
+                            <div class="ph-time-slot sel">14:00</div>
+                            <div class="ph-time-slot">15:00</div>
+                            <div class="ph-time-slot">16:00</div>
+                            <div class="ph-time-slot">18:00</div>
+                            <div class="ph-time-slot">19:00</div>
+                            <div class="ph-time-slot">20:00</div>
+                        </div>
+                        <div style="font-size:12px;color:var(--text2);margin-bottom:6px;font-weight:600">⏱ Длительность
+                        </div>
+                        <div class="ph-dur">
+                            <div class="ph-dur-btn" data-i18n="demo.h1">1 час</div>
+                            <div class="ph-dur-btn sel" data-i18n="demo.h2">2 часа</div>
+                            <div class="ph-dur-btn" data-i18n="demo.h3">3 часа</div>
+                        </div>
+                        <div class="ph-bottom" style="margin-top:auto">
+                            <div style="font-size:11px;color:var(--text2);margin-bottom:6px">Итого: <strong
+                                    style="color:var(--primary)">40,000 UZS</strong></div>
+                            <div class="ph-btn" data-i18n="demo.book">ЗАБРОНИРОВАТЬ</div>
+                        </div>
+                    </div>
+
+                    <!-- Step 4: Confirmation -->
+                    <div class="demo-step" id="demoStep4">
+                        <div class="ph-header" data-i18n="demo.s4h">Бронь подтверждена</div>
+                        <div class="ph-confirm-icon">✅</div>
+                        <div class="ph-confirm-title" data-i18n="demo.ok">Успешно!</div>
+                        <div class="ph-confirm-row"><span data-i18n="demo.club">Клуб</span><span>CyberArena Pro</span>
+                        </div>
+                        <div class="ph-confirm-row"><span data-i18n="demo.seat">Место</span><span>PC-7 (RTX 4070)</span>
+                        </div>
+                        <div class="ph-confirm-row"><span data-i18n="demo.date">Дата</span><span
+                                data-i18n="demo.datev">16 февраля</span></div>
+                        <div class="ph-confirm-row"><span data-i18n="demo.time">Время</span><span>14:00 — 16:00</span>
+                        </div>
+                        <div class="ph-confirm-row"><span data-i18n="demo.sum">Сумма</span><span>40,000 UZS</span></div>
+                        <div class="ph-confirm-code">#2847</div>
+                    </div>
+
+                    <!-- Progress dots -->
+                    <div class="demo-progress">
+                        <div class="demo-dot active" data-step="0"></div>
+                        <div class="demo-dot" data-step="1"></div>
+                        <div class="demo-dot" data-step="2"></div>
+                        <div class="demo-dot" data-step="3"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+
+
+
+    <!-- HOW IT WORKS -->
+    <section id="how" style="padding:100px 0">
+        <div class="container">
+            <div style="text-align:center;margin-bottom:56px" class="reveal">
+                <span class="section-badge">Как это работает</span>
+                <h2 class="section-title">Забронировать место — <span class="gradient-text">за 30 секунд</span></h2>
+                <p class="section-desc" style="margin:12px auto 0">Прямо в Telegram, без установки приложений</p>
+            </div>
+            <div
+                style="display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:32px;position:relative">
+
+                <!-- Step 1 -->
+                <div class="card reveal reveal-delay-1" style="text-align:center;padding:40px 28px">
+                    <div
+                        style="width:64px;height:64px;background:linear-gradient(135deg,var(--primary),var(--secondary));border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 20px;font-size:28px">
+                        🏪</div>
+                    <div
+                        style="font-size:13px;font-weight:700;color:var(--primary);letter-spacing:2px;margin-bottom:8px">
+                        ШАГ 1</div>
+                    <h3 style="font-size:20px;margin-bottom:12px">Выберите клуб</h3>
+                    <p style="color:var(--text2);line-height:1.6">Откройте бота в Telegram и выберите ближайший клуб на
+                        интерактивной карте</p>
+                </div>
+
+                <!-- Step 2 -->
+                <div class="card reveal reveal-delay-2" style="text-align:center;padding:40px 28px">
+                    <div
+                        style="width:64px;height:64px;background:linear-gradient(135deg,var(--secondary),#a855f7);border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 20px;font-size:28px">
+                        🖥️</div>
+                    <div
+                        style="font-size:13px;font-weight:700;color:var(--secondary);letter-spacing:2px;margin-bottom:8px">
+                        ШАГ 2</div>
+                    <h3 style="font-size:20px;margin-bottom:12px">Выберите ПК</h3>
+                    <p style="color:var(--text2);line-height:1.6">Смотрите свободные места в реальном времени, выбирайте
+                        компьютер и время</p>
+                </div>
+
+                <!-- Step 3 -->
+                <div class="card reveal reveal-delay-3" style="text-align:center;padding:40px 28px">
+                    <div
+                        style="width:64px;height:64px;background:linear-gradient(135deg,#a855f7,var(--primary));border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 20px;font-size:28px">
+                        ✅</div>
+                    <div style="font-size:13px;font-weight:700;color:#a855f7;letter-spacing:2px;margin-bottom:8px">ШАГ 3
+                    </div>
+                    <h3 style="font-size:20px;margin-bottom:12px">Бронь готова!</h3>
+                    <p style="color:var(--text2);line-height:1.6">Получите подтверждение с кодом бронирования. Приходите
+                        и играйте!</p>
+                </div>
+
+            </div>
+            <div style="text-align:center;margin-top:48px" class="reveal">
+                <a href="booking.html" class="btn-primary" style="font-size:18px;padding:16px 40px">
+                    📱 Попробовать демо прямо сейчас
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <!-- STATS -->
+    <section class="stats-strip">
+        <div class="container">
+            <div class="stats-row">
+                <div class="stat reveal">
+                    <div class="stat-num" data-count="20">0</div>
+                    <div class="stat-label" data-i18n="stat.s1">Клубов подключено</div>
+                </div>
+                <div class="stat reveal reveal-delay-1">
+                    <div class="stat-num" data-count="1247">0</div>
+                    <div class="stat-label" data-i18n="stat.s2">Бронирований</div>
+                </div>
+                <div class="stat reveal reveal-delay-2">
+                    <div class="stat-num" data-count="8432">0</div>
+                    <div class="stat-label" data-i18n="stat.s3">Часов игрового времени</div>
+                </div>
+                <div class="stat reveal reveal-delay-3">
+                    <div class="stat-num" data-count="482">0</div>
+                    <div class="stat-label" data-i18n="stat.s4">Млн UZS оборота</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+
+
+
+
+
+
+    <!-- CONTACT -->
+    <section id="contact" style="padding:80px 0">
+        <div class="container">
+            <div style="text-align:center;margin-bottom:40px" class="reveal">
+                <span class="section-badge">Связаться</span>
+                <h2 class="section-title">Хотите подключить <span class="gradient-text">свой клуб?</span></h2>
+                <p class="section-desc" style="margin:12px auto 0">Напишите нам — ответим в течение часа</p>
+            </div>
+            <div style="display:flex;justify-content:center;gap:20px;flex-wrap:wrap" class="reveal reveal-delay-1">
+                <a href="tel:+998507749934"
+                    style="display:flex;align-items:center;gap:14px;background:var(--card-bg);border:1px solid var(--border);border-radius:16px;padding:24px 36px;text-decoration:none;transition:all 0.3s;color:var(--text)"
+                    onmouseover="this.style.borderColor='var(--primary)';this.style.boxShadow='0 0 24px rgba(0,255,136,0.15)'"
+                    onmouseout="this.style.borderColor='var(--border)';this.style.boxShadow='none'">
+                    <span style="font-size:36px">📞</span>
+                    <div>
+                        <div style="font-size:13px;color:var(--text2);margin-bottom:4px">Позвонить</div>
+                        <div style="font-size:22px;font-weight:700;color:var(--primary)">+998 50 774 93 34</div>
+                    </div>
+                </a>
+                <a href="https://t.me/+998507749934"
+                    style="display:flex;align-items:center;gap:14px;background:var(--card-bg);border:1px solid var(--border);border-radius:16px;padding:24px 36px;text-decoration:none;transition:all 0.3s;color:var(--text)"
+                    onmouseover="this.style.borderColor='#2AABEE';this.style.boxShadow='0 0 24px rgba(42,171,238,0.15)'"
+                    onmouseout="this.style.borderColor='var(--border)';this.style.boxShadow='none'">
+                    <span style="font-size:36px">✈️</span>
+                    <div>
+                        <div style="font-size:13px;color:var(--text2);margin-bottom:4px">Telegram</div>
+                        <div style="font-size:22px;font-weight:700;color:#2AABEE">+998 50 774 93 34</div>
+                    </div>
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <!-- FOOTER -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-inner">
+                <div class="footer-brand">
+                    <span>🎮</span>
+                    <span>Digital<span style="color:var(--primary)">Arena</span></span>
+                </div>
+                <div class="footer-links">
+                    <a href="dashboard.html">Дашборд</a>
+                    <a href="about.html">О проекте</a>
+                </div>
+                <div class="footer-copy" data-i18n="footer">© 2025 Digital Arena — Министерство Цифровых Технологий
+                    Республики Узбекистан
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        // Scroll reveal
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('visible') });
+        }, { threshold: 0.1 });
+        document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+
+        // Stat counter animation
+        const countObserver = new IntersectionObserver((entries) => {
+            entries.forEach(e => {
+                if (e.isIntersecting && !e.target.dataset.done) {
+                    e.target.dataset.done = '1';
+                    const target = +e.target.dataset.count;
+                    const dur = 2000;
+                    const start = performance.now();
+                    const tick = (now) => {
+                        const p = Math.min((now - start) / dur, 1);
+                        const ease = 1 - Math.pow(1 - p, 3);
+                        e.target.textContent = Math.floor(target * ease).toLocaleString();
+                        if (p < 1) requestAnimationFrame(tick);
+                    };
+                    requestAnimationFrame(tick);
+                }
+            });
+        }, { threshold: 0.3 });
+        document.querySelectorAll('[data-count]').forEach(el => countObserver.observe(el));
+
+        // Nav scroll effect
+        window.addEventListener('scroll', () => {
+            document.getElementById('nav').classList.toggle('scrolled', window.scrollY > 40);
+        });
+
+        // Live counter
+        let liveBase = 12843;
+        setInterval(() => {
+            liveBase += Math.floor(Math.random() * 16) - 6;
+            if (liveBase < 12000) liveBase = 12200;
+            if (liveBase > 14000) liveBase = 13500;
+            document.getElementById('liveCount').textContent = liveBase.toLocaleString();
+        }, 2500);
+
+        // Mobile menu
+        function toggleMenu() {
+            document.getElementById('mobileMenu').classList.toggle('open');
+        }
+
+        // i18n system
+        const T = { UZ: { 'nav.problem': 'Muammo', 'nav.platform': 'Platforma', 'nav.gov': 'Davlat uchun', 'nav.pilot': 'Pilot', 'nav.pilot_full': 'Pilot loyiha', 'nav.about': 'Loyiha haqida', 'nav.dash': 'Dashboard', 'hero.badge': '\u{1F3DB}\uFE0F Raqamli texnologiyalar vazirligi uchun loyiha', 'hero.title1': 'Raqamli ekotizim', 'hero.title2': "O'zbekiston kibersporti", 'hero.sub': "Digital Arena \u2014 kompyuter klublar sanoatini yashirin iqtisodiyotdan chiqarish uchun yagona platforma. Fiskal nazorat, o'yinchilarni tekshirish va bozor rivojlanishi uchun Big Data.", 'hero.btn1': 'Dashboardni ochish', 'hero.demo': 'Jonli demo', 'hero.btn2': 'Batafsil', 'hero.trust1': 'Bozor hajmi/yil', 'hero.trust2': 'Mamlakatdagi klublar', 'hero.trust3': 'Yashirin aylanma', 'hero.live': "Hozir o'ynayapti:", 'hero.live2': 'kishi', 'demo.s1': '1-qadam \u2014 Klubni tanlang', 'demo.s2': '2-qadam \u2014 Kompyuter tanlang', 'demo.next': 'KEYINGI \u2192', 'demo.s3h': 'Vaqt va sana', 'demo.s3': '3-qadam \u2014 Vaqtni tanlang', 'demo.s3date': '\uD83D\uDCC5 Bugun, 16 fevral', 'demo.dur': '\u23F1 Davomiylik', 'demo.h1': '1 soat', 'demo.h2': '2 soat', 'demo.h3': '3 soat', 'demo.book': 'BAND QILISH', 'demo.s4h': 'Band tasdiqlandi', 'demo.ok': 'Muvaffaqiyatli!', 'demo.club': 'Klub', 'demo.seat': "O'rin", 'demo.date': 'Sana', 'demo.datev': '16 fevral', 'demo.time': 'Vaqt', 'demo.sum': 'Summa', 'prob.badge': 'Muammo', 'prob.c1h': "Byudjet yo'qotishlari", 'prob.c1p': "Kompyuter klublarning 70% daromadi \u2014 hisobga olinmagan naqd pul. Davlat har yili millionlab soliq yo'qotadi.", 'prob.c2h': "Nazorat yo'qligi", 'prob.c2p': "Yosh tekshiruvi yo'q, kontent monitoringi yo'q. Voyaga yetmaganlar cheklanmasdan klublarga tashrif buyuradi.", 'prob.c3h': "Ma'lumot yo'q", 'prob.c3p': "Statistikasiz sanoat siyosatini rejalashtirish mumkin emas. Bozor davlat uchun butunlay ko'rinmas.", 'prob.c4h': "Ko'rinmas bozor", 'prob.c4p': "Valve va Riot O'zbekiston bozorini ko'rmaydi \u2192 mahalliy serverlar yo'q \u2192 o'yinchilar uchun 15ms o'rniga 80ms ping.", 'plat.badge': 'Yechim', 'plat.title': 'Yagona raqamli platforma', 'plat.desc': "Sanoatning to'liq shaffofligi uchun uch darajali integratsiya", 'plat.s1h': 'Klub dasturi bilan integratsiya', 'plat.s1p': "iCafe, Runpad, SmartShell bilan API ulanish. Tizim har bir kompyuterning real vaqtini ko'radi.", 'plat.s2h': 'Avtomatik solishtirish', 'plat.s2p': "Kompyuter ishlash vaqti va Kassa daromadi solishtiriladi. 15% dan ortiq farq \u2192 avtomatik fiskal bayroq.", 'plat.s3h': 'Jurnallarni kriptohimoya', 'plat.s3p': "SHA-256 Audit Chain: har bir hodisa imzolangan. Ma'lumotlarni orqaga qarab o'zgartirish mumkin emas.", 'gov.badge': 'Davlat uchun', 'gov.c1h': 'Fiskal nazorat', 'gov.c1p': "Kompyuterlarning haqiqiy yuklanishi va e'lon qilingan daromadni avtomatik solishtirish.", 'gov.c2h': "O'yinchilarni tekshirish", 'gov.c2p': "SMS orqali 100% yosh tekshiruvi. Voyaga yetmaganlarni himoya qilish uchun kontent monitoringi.", 'gov.c3h': 'Big Data va analitika', 'gov.c3p': "Real vaqt statistikasi: klublar yuklanishi, mashhur o'yinlar, mintaqaviy trendlar. 24/7.", 'gov.c4h': 'Kriptohimoya', 'gov.c4p': "SHA-256 Audit Chain: har bir hodisa imzolangan. Ma'lumotlar manipulyatsiyasidan to'liq himoya.", 'gov.c5h': 'Sanoat xaritasi', 'gov.c5p': "Mamlakatdagi barcha klublarning real vaqtdagi interaktiv xaritasi.", 'gov.c6h': 'Sertifikatlash', 'gov.c6p': "Klublarning ixtiyoriy sertifikatlashi. Qonuniy maydonchalar uchun Digital Arena Verified belgisi.", 'stat.s1': 'Ulangan klublar', 'stat.s2': 'Bandlovlar', 'stat.s3': "O'yin soatlari", 'stat.s4': 'Mln UZS aylanma', 'club.badge': 'Klublar uchun', 'club.c1h': 'Telegram Mini App', 'club.c1p': "Mijozlar Telegram orqali band qiladi \u2014 auditoriyaning 90% allaqachon u yerda.", 'club.c2h': 'Yuklanish analitikasi', 'club.c2p': "Eng ko'p soatlar, mashhur zonalar va kompyuterlarni tushunish.", 'club.c3h': "Naqdsiz to'lov", 'club.c3p': 'Click/Payme orqali oldindan to\'lov. No-showni kamaytirish.', 'club.c4h': 'Sertifikatlash', 'club.c4p': 'Digital Arena Verified belgisi mijozlar ishonchini oshiradi.', 'pilot.badge': 'Pilot loyiha', 'pilot.desc': 'Xavflarni minimallashtirish uchun bosqichma-bosqich yondashuv', 'pilot.p1h': 'MVP va sinov', 'pilot.p1p': 'Telegram-bot, bandlov, Toshkentda 5 ta klub bilan integratsiya.', 'pilot.done': '\u2713 Tugallandi', 'pilot.p2h': 'Fiskal modul', 'pilot.p2p': "Click/Payme orqali to'lov, fiskal solishtirish, SHA-256 Audit Chain.", 'pilot.active': '\u25CF Jarayonda', 'pilot.p3h': 'Kengaytirish', 'pilot.p3p': '50 klub, 3 mintaqa. Klublarni sertifikatlash. Soliq organlari uchun API.', 'pilot.planned': 'Rejalashtirilgan', 'pilot.p4h': 'Milliy miqyos', 'pilot.p4p': "200+ klub, barcha mintaqalar. GNK bilan integratsiya. Kibersport turniri.", 'test.badge': 'Fikrlar', 'test.t1': '\u00ABDigital Arena bilan bandlovlarimiz 30% ga oshdi. Mijozlar uydan chiqmasdan Telegram orqali band qiladi.\u00BB', 'test.r1': 'CyberArena Pro egasi, Toshkent', 'test.t2': '\u00ABFiskal modul bizga hisobni tartibga solishga yordam berdi.\u00BB', 'test.r2': 'GameZone egasi, Toshkent', 'test.t3': '\u00ABNihoyat, klubni boshqarish uchun oddiy yechim. iCafe bilan integratsiya 10 daqiqada bo\'ldi.\u00BB', 'test.r3': 'ProGaming egasi, Samarqand', 'cta.desc': 'Pilot loyihani muhokama qilish va klubingizni platformaga ulash uchun biz bilan bog\'laning.', 'cta.btn1': 'Dashboardni ko\'rish', 'cta.btn2': 'Loyiha haqida', 'footer': "\u00A9 2025 Digital Arena \u2014 O'zbekiston Respublikasi Raqamli Texnologiyalar Vazirligi" }, EN: { 'nav.problem': 'Problem', 'nav.platform': 'Platform', 'nav.gov': 'For Government', 'nav.pilot': 'Pilot', 'nav.pilot_full': 'Pilot Project', 'nav.about': 'About', 'nav.dash': 'Dashboard', 'hero.badge': '\u{1F3DB}\uFE0F Project for the Ministry of Digital Technologies', 'hero.title1': 'Digital Ecosystem', 'hero.title2': 'of Uzbekistan Esports', 'hero.sub': 'Digital Arena is a unified platform to bring the computer club industry out of the shadow economy. Fiscal control, player verification, and Big Data for market development.', 'hero.btn1': 'Open Dashboard', 'hero.demo': 'Live Demo', 'hero.btn2': 'Learn More', 'hero.trust1': 'Market volume/year', 'hero.trust2': 'Clubs nationwide', 'hero.trust3': 'Shadow turnover', 'hero.live': 'Currently playing:', 'hero.live2': 'players', 'demo.s1': 'Step 1 \u2014 Choose a Club', 'demo.s2': 'Step 2 \u2014 Choose a PC', 'demo.next': 'NEXT \u2192', 'demo.s3h': 'Time & Date', 'demo.s3': 'Step 3 \u2014 Choose Time', 'demo.s3date': '\uD83D\uDCC5 Today, February 16', 'demo.dur': '\u23F1 Duration', 'demo.h1': '1 hour', 'demo.h2': '2 hours', 'demo.h3': '3 hours', 'demo.book': 'BOOK NOW', 'demo.s4h': 'Booking Confirmed', 'demo.ok': 'Success!', 'demo.club': 'Club', 'demo.seat': 'Seat', 'demo.date': 'Date', 'demo.datev': 'February 16', 'demo.time': 'Time', 'demo.sum': 'Total', 'prob.badge': 'Problem', 'prob.c1h': 'Budget Losses', 'prob.c1p': '70% of computer club revenue is unaccounted cash. The government loses millions in tax revenue annually.', 'prob.c2h': 'No Control', 'prob.c2p': 'No age verification, no content monitoring. Minors visit clubs without restrictions.', 'prob.c3h': 'No Data', 'prob.c3p': 'Industrial policy planning is impossible without statistics. The market is completely invisible to the state.', 'prob.c4h': 'Invisible Market', 'prob.c4p': 'Valve and Riot can\'t see the Uzbek market \u2192 no local servers \u2192 80ms ping instead of 15ms.', 'plat.badge': 'Solution', 'plat.title': 'Unified Digital Platform', 'plat.desc': 'Three integration levels for full industry transparency', 'plat.s1h': 'Club Software Integration', 'plat.s1p': 'API connection to iCafe, Runpad, SmartShell. Real-time PC usage monitoring.', 'plat.s2h': 'Automatic Reconciliation', 'plat.s2p': 'Comparing PC uptime with cash revenue. Discrepancy > 15% \u2192 automatic fiscal flag.', 'plat.s3h': 'Crypto-Protected Logs', 'plat.s3p': 'SHA-256 Audit Chain: every event is signed and linked. Data cannot be altered retroactively.', 'gov.badge': 'For Government', 'gov.c1h': 'Fiscal Control', 'gov.c1p': 'Automatic reconciliation of actual PC usage and declared revenue. Instant shadow detection.', 'gov.c2h': 'Player Verification', 'gov.c2p': '100% age verification via SMS. Content monitoring for minor protection.', 'gov.c3h': 'Big Data & Analytics', 'gov.c3p': 'Real-time stats: club occupancy, popular games, regional trends. 24/7.', 'gov.c4h': 'Crypto Protection', 'gov.c4p': 'SHA-256 Audit Chain: every event is signed. Full protection against data manipulation.', 'gov.c5h': 'Industry Map', 'gov.c5p': 'Interactive map of all clubs with real-time occupancy, revenue, and violations.', 'gov.c6h': 'Certification', 'gov.c6p': 'Voluntary club certification. Digital Arena Verified badge for legal venues.', 'stat.s1': 'Clubs Connected', 'stat.s2': 'Bookings', 'stat.s3': 'Gaming Hours', 'stat.s4': 'Mln UZS Revenue', 'club.badge': 'For Clubs', 'club.c1h': 'Telegram Mini App', 'club.c1p': 'Clients book via Telegram \u2014 90% of the audience is already there. No app install needed.', 'club.c2h': 'Occupancy Analytics', 'club.c2p': 'Understand peak hours, popular zones and PCs. Data-driven optimization.', 'club.c3h': 'Cashless Payments', 'club.c3p': 'Prepayment via Click/Payme. Reduced no-shows and higher average check.', 'club.c4h': 'Certification', 'club.c4p': 'Digital Arena Verified badge increases customer trust and attracts corporate events.', 'pilot.badge': 'Pilot Project', 'pilot.desc': 'Phased approach to minimize risks', 'pilot.p1h': 'MVP & Testing', 'pilot.p1p': 'Telegram bot, booking, integration with 5 clubs in Tashkent. Basic analytics.', 'pilot.done': '\u2713 Completed', 'pilot.p2h': 'Fiscal Module', 'pilot.p2p': 'Payment via Click/Payme, fiscal reconciliation, SHA-256 Audit Chain, age verification.', 'pilot.active': '\u25CF In Progress', 'pilot.p3h': 'Scaling', 'pilot.p3p': '50 clubs, 3 regions. Club certification. API for tax authorities. White paper.', 'pilot.planned': 'Planned', 'pilot.p4h': 'National Scale', 'pilot.p4p': '200+ clubs, all regions. Tax integration. Esports tournaments. Model export.', 'test.badge': 'Testimonials', 'test.t1': '"With Digital Arena our bookings grew by 30%. Clients book via Telegram from home."', 'test.r1': 'Owner, CyberArena Pro, Tashkent', 'test.t2': '"The fiscal module helped us get our accounting in order."', 'test.r2': 'Owner, GameZone, Tashkent', 'test.t3': '"Simple solution for club management. iCafe integration took 10 minutes."', 'test.r3': 'Owner, ProGaming, Samarkand', 'cta.desc': 'Contact us to discuss the pilot project and connect your club to the platform.', 'cta.btn1': 'View Dashboard', 'cta.btn2': 'About Project', 'footer': '\u00A9 2025 Digital Arena \u2014 Ministry of Digital Technologies of the Republic of Uzbekistan' } };
+        const ruTexts = {};
+        document.querySelectorAll('[data-i18n]').forEach(el => { ruTexts[el.dataset.i18n] = el.textContent });
+        document.querySelectorAll('[data-i18n-html]').forEach(el => { ruTexts[el.dataset.i18nHtml] = el.innerHTML });
+
+        // Section titles that contain HTML (gradient-text spans)
+        const htmlTitles = {
+            '#problem .section-title': { UZ: "Yashirin iqtisodiyot \u2014<br><span class='gradient-text'>yiliga $32-64M hisobsiz</span>", EN: "Shadow Economy \u2014<br><span class='gradient-text'>$32-64M/year unaccounted</span>" },
+            '#government .section-title': { UZ: "Sanoatning to'liq <span class='gradient-text'>shaffofligi</span>", EN: "Full Industry <span class='gradient-text'>Transparency</span>" },
+            '#clubs .section-title': { UZ: "Daromad o'sishi <span class='gradient-text'>20-35% ga</span>", EN: "Revenue Growth <span class='gradient-text'>by 20-35%</span>" },
+            '.pilot-section .section-title': { UZ: "Ishga tushirish <span class='gradient-text'>yo'l xaritasi</span>", EN: "Launch <span class='gradient-text'>Roadmap</span>" },
+            '.testimonials .section-title': { UZ: "Hamkorlar <span class='gradient-text'>nima deydi</span>", EN: "What <span class='gradient-text'>partners say</span>" },
+            '.cta-card h2': { UZ: "Raqamli <span class='gradient-text'>transformatsiyaga tayyormisiz?</span>", EN: "Ready for <span class='gradient-text'>digital transformation?</span>" }
+        };
+        const htmlOriginals = {};
+        Object.keys(htmlTitles).forEach(sel => { const el = document.querySelector(sel); if (el) htmlOriginals[sel] = el.innerHTML });
+
+        let lang = 'RU';
+        function toggleLang() {
+            lang = lang === 'RU' ? 'UZ' : lang === 'UZ' ? 'EN' : 'RU';
+            document.querySelector('.lang-btn').textContent = '\uD83C\uDF10 ' + lang;
+            const dict = lang === 'RU' ? ruTexts : T[lang];
+            if (!dict) return;
+            document.querySelectorAll('[data-i18n]').forEach(el => { const k = el.dataset.i18n; if (dict[k]) el.textContent = dict[k] });
+            document.querySelectorAll('[data-i18n-html]').forEach(el => { const k = el.dataset.i18nHtml; if (dict[k]) el.innerHTML = dict[k] });
+            Object.keys(htmlTitles).forEach(sel => {
+                const el = document.querySelector(sel);
+                if (!el) return;
+                if (lang === 'RU') { el.innerHTML = htmlOriginals[sel] || el.innerHTML }
+                else if (htmlTitles[sel][lang]) { el.innerHTML = htmlTitles[sel][lang] }
+            });
+        }
+
+        // Phone demo animation
+        let demoStep = 0;
+        const steps = document.querySelectorAll('.demo-step');
+        const dots = document.querySelectorAll('.demo-dot');
+        function nextDemoStep() {
+            const prev = steps[demoStep];
+            prev.classList.remove('active');
+            prev.classList.add('exit');
+            setTimeout(() => prev.classList.remove('exit'), 500);
+            demoStep = (demoStep + 1) % steps.length;
+            steps[demoStep].classList.add('active');
+            dots.forEach((d, i) => d.classList.toggle('active', i === demoStep));
+        }
+        setInterval(nextDemoStep, 3000);
+    </script>
+</body>
+
+</html>
