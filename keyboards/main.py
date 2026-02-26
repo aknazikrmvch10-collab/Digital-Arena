@@ -56,20 +56,24 @@ def get_club_detail_keyboard(club_id: int) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=buttons)
 
 
-def get_computers_keyboard(club_id: int, computers: list) -> InlineKeyboardMarkup:
-    """Show available computers with specs if available."""
+def get_computers_keyboard(club_id: int, computers: list, page: int = 0) -> InlineKeyboardMarkup:
+    """Show available computers with specs if available. Paginated (max 20 per page)."""
+    PAGE_SIZE = 20
+    total = len(computers)
+    start = page * PAGE_SIZE
+    end = min(start + PAGE_SIZE, total)
+    page_computers = computers[start:end]
+    
     buttons = []
-    for pc in computers:
-        status = "✅" if pc.is_active else "❌"
+    for pc in page_computers:
+        status = "✅" if getattr(pc, 'is_available', True) else "❌"
         
         # Build compact spec display
         if pc.gpu and pc.ram_gb and pc.monitor_hz:
-            # Full specs available
             spec_text = f"{pc.gpu} {pc.ram_gb}GB {pc.monitor_hz}Hz"
             price_k = int(pc.price_per_hour / 1000)
             text = f"{status} {pc.name} | {spec_text} | {price_k}k сум"
         else:
-            # No specs, show old format
             text = f"{status} {pc.name} - {pc.zone} ({int(pc.price_per_hour)} сум/час)"
         
         buttons.append([
@@ -79,8 +83,14 @@ def get_computers_keyboard(club_id: int, computers: list) -> InlineKeyboardMarku
             )
         ])
     
-    # Add Filter button (maybe remove if zones are enough? Keep for now)
-    # buttons.append([InlineKeyboardButton(text="🔍 Фильтры поиска", callback_data=f"filters:{club_id}")])
+    # Pagination buttons
+    nav_buttons = []
+    if page > 0:
+        nav_buttons.append(InlineKeyboardButton(text="⬅️ Назад", callback_data=f"pc_page:{club_id}:{page-1}"))
+    if end < total:
+        nav_buttons.append(InlineKeyboardButton(text=f"➡️ Ещё ({total - end})", callback_data=f"pc_page:{club_id}:{page+1}"))
+    if nav_buttons:
+        buttons.append(nav_buttons)
     
     # Back to zones list
     buttons.append([InlineKeyboardButton(text="« Назад к зонам", callback_data=f"view_pcs:{club_id}")])

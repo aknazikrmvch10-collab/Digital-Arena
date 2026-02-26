@@ -292,6 +292,37 @@ async def show_zone_computers(callback: CallbackQuery):
             parse_mode="HTML"
         )
 
+@router.callback_query(F.data.startswith("pc_page:"))
+async def show_computers_page(callback: CallbackQuery):
+    """Handle pagination for computer list."""
+    parts = callback.data.split(":")
+    club_id = int(parts[1])
+    page = int(parts[2])
+    
+    async with async_session_factory() as session:
+        club = await session.get(Club, club_id)
+        if not club:
+            await callback.answer("❌ Клуб не найден.", show_alert=True)
+            return
+        
+        try:
+            driver = DriverFactory.get_driver(club.driver_type, {"club_id": club.id, **club.connection_config})
+            computers = await driver.get_computers()
+        except Exception as e:
+            await callback.answer(f"❌ Ошибка: {str(e)[:100]}", show_alert=True)
+            return
+        
+        if not computers:
+            await callback.answer("Нет компьютеров.", show_alert=True)
+            return
+        
+        text = f"💻 <b>Компьютеры</b> (стр. {page + 1})\n\nВыберите ПК для бронирования:"
+        
+        await callback.message.edit_text(
+            text,
+            reply_markup=get_computers_keyboard(club.id, computers, page=page),
+            parse_mode="HTML"
+        )
 @router.callback_query(F.data.startswith("book:"))
 async def show_date_selection(callback: CallbackQuery):
     """Show date selection for booking."""
