@@ -2,11 +2,13 @@ from datetime import datetime, timedelta
 from utils.timezone import now_tashkent
 from typing import List, Optional
 import asyncio
-from sqlalchemy import select, and_
+from sqlalchemy import select, and_, or_
 
 from .base import BaseDriver, ComputerSchema, ZoneSchema, BookingResult
 from database import async_session_factory
-from models import Booking, User, Club
+from models import Booking, User, Club, Computer
+import random
+import string
 
 class MockDriver(BaseDriver):
     """
@@ -181,6 +183,9 @@ class MockDriver(BaseDriver):
                     if not user:
                         return BookingResult(success=False, message="Пользователь не найден")
                     
+                    # Generate 6-char confirmation code
+                    conf_code = "".join(random.choices(string.ascii_uppercase + string.digits, k=6))
+                    
                     # Create booking
                     booking = Booking(
                         user_id=user.id,
@@ -189,7 +194,8 @@ class MockDriver(BaseDriver):
                         item_id=int(pc_id),
                         start_time=start_time,
                         end_time=end_time,
-                        status="CONFIRMED"
+                        status="CONFIRMED",
+                        confirmation_code=conf_code
                     )
                     session.add(booking)
                     await session.flush()

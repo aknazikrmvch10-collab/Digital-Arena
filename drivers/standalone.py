@@ -8,6 +8,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from .base import BaseDriver, ComputerSchema, BookingResult, ZoneSchema
 from models import Computer, Booking, Club, User
 from database import async_session_factory
+import random
+import string
 
 logger = logging.getLogger(__name__)
 
@@ -234,6 +236,9 @@ class StandaloneDriver(BaseDriver):
                         logger.warning(f"User {user_id} not found")
                         return BookingResult(success=False, message="Пользователь не найден")
                     
+                    # Generate 6-char confirmation code
+                    conf_code = "".join(random.choices(string.ascii_uppercase + string.digits, k=6))
+                    
                     # Create booking
                     booking = Booking(
                         user_id=user.id,
@@ -242,7 +247,8 @@ class StandaloneDriver(BaseDriver):
                         item_id=int(pc_id),
                         start_time=start_time,
                         end_time=end_time,
-                        status="CONFIRMED"
+                        status="CONFIRMED",
+                        confirmation_code=conf_code
                     )
                     session.add(booking)
                     await session.flush()

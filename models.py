@@ -145,6 +145,7 @@ class Booking(Base):
     start_time = Column(DateTime(timezone=True), nullable=False, index=True)  # ✅ FIX #9: added index for availability queries
     end_time = Column(DateTime(timezone=True), nullable=False, index=True)    # ✅ FIX #9: added index for availability queries
     status = Column(String, default="CONFIRMED")
+    confirmation_code = Column(String, nullable=True) # Unique code for check-in
     check_timeout = Column(Boolean, default=False)
     notification_sent = Column(Boolean, default=False)
     created_at = Column(DateTime(timezone=True), default=lambda: now_tashkent())

@@ -125,15 +125,25 @@ async def show_my_bookings(event: Message | CallbackQuery):
                 text += f"  {b.start_time.astimezone(tz).strftime('%d.%m %H:%M')} - {b.end_time.astimezone(tz).strftime('%H:%M')}\n"
                 text += f"  Статус: {status_text}\n\n"
                 
-                # Add cancel button only for CONFIRMED bookings
-                if b.status == "CONFIRMED":
+                if b.status in ["CONFIRMED", "ACTIVE"]:
                     from aiogram.types import InlineKeyboardButton
-                    buttons.append([
-                        InlineKeyboardButton(
-                            text=f"❌ Отменить {b.computer_name} ({b.start_time.astimezone(tz).strftime('%d.%m %H:%M')})",
-                            callback_data=f"cancel_booking:{b.id}"
+                    action_buttons = []
+                    if b.confirmation_code:
+                        action_buttons.append(
+                            InlineKeyboardButton(
+                                text=f"🎟 Показать код",
+                                callback_data=f"show_code:{b.id}"
+                            )
                         )
-                    ])
+                    if b.status == "CONFIRMED":
+                        action_buttons.append(
+                            InlineKeyboardButton(
+                                text=f"❌ Отменить",
+                                callback_data=f"cancel_booking:{b.id}"
+                            )
+                        )
+                    if action_buttons:
+                        buttons.append(action_buttons)
             
             # Add clear history button if there are any completed/cancelled bookings
             has_old_bookings = any(b.status in ["COMPLETED", "CANCELLED", "NO_SHOW"] for b in bookings)
@@ -225,6 +235,58 @@ async def send_club_location(callback: CallbackQuery):
         await callback.message.answer_location(
             latitude=latitude,
             longitude=longitude
+        )
+        await callback.answer()
+
+@router.callback_query(F.data.startswith("show_code:"))
+async def show_booking_code(callback: CallbackQuery):
+    """Show the booking confirmation code and generate a QR."""
+    booking_id = int(callback.data.split(":")[1])
+    
+    async with async_session_factory() as session:
+        # Fetch user ID from callback.from_user.id to compare with booking.user_id
+        user_tg_id = callback.from_user.id
+        user_in_db = await session.execute(select(User).where(User.tg_id == user_tg_id))
+        user_id_from_db = user_in_db.scalars().first().id if user_in_db.scalars().first() else None
+
+        booking = await session.get(Booking, booking_id)
+        if not booking or booking.user_id != user_id_from_db:
+            await callback.answer("Бронь не найдена или недоступна.", show_alert=True)
+            return
+            
+        if not booking.confirmation_code:
+            await callback.answer("Код подтверждения не найден.", show_alert=True)
+            return
+            
+        import qrcode
+        import io
+        from aiogram.types import BufferedInputFile
+        
+        # Generate QR code in memory
+        qr = qrcode.QRCode(
+            version=1,
+            error_correction=qrcode.constants.ERROR_CORRECT_L,
+            box_size=10,
+            border=4,
+        )
+        qr.add_data(booking.confirmation_code)
+        qr.make(fit=True)
+        img = qr.make_image(fill_color="black", back_color="white")
+        
+        # Save to buffer
+        img_buffer = io.BytesIO()
+        img.save(img_buffer, format="PNG")
+        img_buffer.seek(0)
+        
+        # Send photo
+        file = BufferedInputFile(img_buffer.getvalue(), filename="qrcode.png")
+        
+        text = f"🎟 Ваш код подтверждения:\n\n<code>{booking.confirmation_code}</code>\n\nПокажите этот код администратору в клубе."
+        
+        await callback.message.answer_photo(
+            photo=file,
+            caption=text,
+            parse_mode="HTML"
         )
         await callback.answer()
 
@@ -596,14 +658,25 @@ async def cancel_booking(callback: CallbackQuery):
                 text += f"  {b.start_time.astimezone(tz).strftime('%d.%m %H:%M')} - {b.end_time.astimezone(tz).strftime('%H:%M')}\n"
                 text += f"  Статус: {status_text}\n\n"
                 
-                if b.status == "CONFIRMED":
+                if b.status in ["CONFIRMED", "ACTIVE"]:
                     from aiogram.types import InlineKeyboardButton
-                    buttons.append([
-                        InlineKeyboardButton(
-                            text=f"❌ Отменить {b.computer_name} ({b.start_time.astimezone(tz).strftime('%d.%m %H:%M')})",
-                            callback_data=f"cancel_booking:{b.id}"
+                    action_buttons = []
+                    if b.confirmation_code:
+                        action_buttons.append(
+                            InlineKeyboardButton(
+                                text=f"🎟 Показать код",
+                                callback_data=f"show_code:{b.id}"
+                            )
                         )
-                    ])
+                    if b.status == "CONFIRMED":
+                        action_buttons.append(
+                            InlineKeyboardButton(
+                                text=f"❌ Отменить",
+                                callback_data=f"cancel_booking:{b.id}"
+                            )
+                        )
+                    if action_buttons:
+                        buttons.append(action_buttons)
             
             # Add clear history button
             has_old_bookings = any(b.status in ["COMPLETED", "CANCELLED", "NO_SHOW"] for b in bookings)
