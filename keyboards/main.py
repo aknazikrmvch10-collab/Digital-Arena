@@ -114,12 +114,13 @@ async def get_time_keyboard(club_id: int, pc_id: str, day_offset: int) -> Inline
     buttons = []
     
     async with async_session_factory() as session:
-        # Query bookings for this PC on the selected date
+        # Query bookings for this PC on the selected date using item_id (reliable)
         result = await session.execute(
             select(Booking).where(
                 and_(
-                    Booking.computer_name == f"PC-{pc_id}",
-                    Booking.status == "CONFIRMED"
+                    Booking.item_id == int(pc_id),
+                    Booking.club_id == int(club_id),
+                    Booking.status.in_(["CONFIRMED", "ACTIVE"])
                 )
             )
         )
@@ -129,8 +130,12 @@ async def get_time_keyboard(club_id: int, pc_id: str, day_offset: int) -> Inline
         occupied_hours = set()
         for booking in bookings:
             if booking.start_time.date() == selected_date:
-                # Mark the start hour as occupied
-                occupied_hours.add(booking.start_time.hour)
+                # Mark ALL hours that this booking covers as occupied
+                from datetime import timedelta
+                current = booking.start_time
+                while current < booking.end_time:
+                    occupied_hours.add(current.hour)
+                    current += timedelta(hours=1)
     
     # Show all 24 hours (24/7 operation)
     for hour in range(24):

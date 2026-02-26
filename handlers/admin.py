@@ -514,3 +514,123 @@ async def admin_club_settings(callback: CallbackQuery):
     """Placeholder for club settings."""
     await callback.answer("⚙️ Настройки клуба будут доступны в следующем обновлении!", show_alert=True)
 
+
+# --- View/Delete Individual Item (PC or Table) ---
+@router.callback_query(F.data.startswith("admin_item_view:"))
+async def admin_item_view(callback: CallbackQuery):
+    """View details of a specific computer or restaurant table."""
+    parts = callback.data.split(":")
+    item_id = int(parts[1])
+    venue_type = parts[2] if len(parts) > 2 else "computer_club"
+    
+    async with async_session_factory() as session:
+        if venue_type == "restaurant":
+            item = await session.get(RestaurantTable, item_id)
+            if not item:
+                await callback.answer("❌ Стол не найден", show_alert=True)
+                return
+            
+            text = (
+                f"🍽 <b>{item.name}</b>\n\n"
+                f"📍 Зона: {item.zone}\n"
+                f"👥 Мест: {item.seats}\n"
+                f"💰 Депозит: {item.min_deposit} сум\n"
+                f"🔑 Цена брони: {item.booking_price} сум\n"
+                f"📸 Фото: {'✅' if item.image_url else '❌'}\n"
+                f"⚡ Статус: {'✅ Активен' if item.is_active else '❌ Неактивен'}"
+            )
+            club_id = item.club_id
+        else:
+            item = await session.get(Computer, item_id)
+            if not item:
+                await callback.answer("❌ Компьютер не найден", show_alert=True)
+                return
+            
+            text = (
+                f"💻 <b>{item.name}</b>\n\n"
+                f"📍 Зона: {item.zone}\n"
+                f"🖥 CPU: {item.cpu or 'Не указан'}\n"
+                f"🎮 GPU: {item.gpu or 'Не указана'}\n"
+                f"🧠 RAM: {item.ram_gb or '?'} GB\n"
+                f"📺 Монитор: {item.monitor_hz or '?'} Hz\n"
+                f"💰 Цена: {item.price_per_hour or 0} сум/ч\n"
+                f"📸 Фото: {'✅' if item.image_url else '❌'}\n"
+                f"⚡ Статус: {'✅ Активен' if item.is_active else '❌ Неактивен'}"
+            )
+            club_id = item.club_id
+    
+    from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(
+            text="🔄 Вкл/Выкл" , 
+            callback_data=f"admin_toggle_item:{item_id}:{venue_type}"
+        )],
+        [InlineKeyboardButton(
+            text="🗑 Удалить", 
+            callback_data=f"admin_delete_item:{item_id}:{venue_type}"
+        )],
+        [InlineKeyboardButton(
+            text="« Назад", 
+            callback_data=f"admin_club_computers:{club_id}"
+        )]
+    ])
+    
+    await safe_edit(callback.message, text, reply_markup=keyboard, parse_mode="HTML")
+
+
+@router.callback_query(F.data.startswith("admin_toggle_item:"))
+async def admin_toggle_item(callback: CallbackQuery):
+    """Toggle active/inactive status of an item."""
+    parts = callback.data.split(":")
+    item_id = int(parts[1])
+    venue_type = parts[2] if len(parts) > 2 else "computer_club"
+    
+    async with async_session_factory() as session:
+        if venue_type == "restaurant":
+            item = await session.get(RestaurantTable, item_id)
+        else:
+            item = await session.get(Computer, item_id)
+        
+        if not item:
+            await callback.answer("❌ Объект не найден", show_alert=True)
+            return
+        
+        item.is_active = not item.is_active
+        new_status = "✅ Активен" if item.is_active else "❌ Неактивен"
+        await session.commit()
+    
+    await callback.answer(f"Статус изменён: {new_status}", show_alert=True)
+    
+    # Refresh the item view
+    callback.data = f"admin_item_view:{item_id}:{venue_type}"
+    await admin_item_view(callback)
+
+
+@router.callback_query(F.data.startswith("admin_delete_item:"))
+async def admin_delete_item(callback: CallbackQuery):
+    """Delete a specific computer or table."""
+    parts = callback.data.split(":")
+    item_id = int(parts[1])
+    venue_type = parts[2] if len(parts) > 2 else "computer_club"
+    
+    async with async_session_factory() as session:
+        if venue_type == "restaurant":
+            item = await session.get(RestaurantTable, item_id)
+        else:
+            item = await session.get(Computer, item_id)
+        
+        if not item:
+            await callback.answer("❌ Объект не найден", show_alert=True)
+            return
+        
+        club_id = item.club_id
+        item_name = item.name
+        await session.delete(item)
+        await session.commit()
+    
+    await callback.answer(f"✅ {item_name} удалён", show_alert=True)
+    
+    # Return to items list
+    callback.data = f"admin_club_computers:{club_id}"
+    await show_computers_list(callback)
+
