@@ -735,8 +735,12 @@ async def clear_history(callback: CallbackQuery):
             buttons.append([InlineKeyboardButton(text="« Назад", callback_data="back_main")])
             keyboard = InlineKeyboardMarkup(inline_keyboard=buttons)
         
+        await callback.message.edit_text(
+            text,
+            reply_markup=keyboard,
             parse_mode="HTML"
         )
+
 
 @router.callback_query(F.data.startswith("show_code:"))
 async def show_booking_code(callback: CallbackQuery):
