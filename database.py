@@ -16,17 +16,21 @@ async def get_db() -> AsyncSession:
         yield session
 
 async def init_db():
+    # First, configure the base tables
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
         
-        # Safe auto-migration for missing column
-        from sqlalchemy import text
-        try:
-            # PostgreSQL syntax
+    # Safe auto-migration for missing column
+    # Must be done in separate transactions so a failure doesn't abort the entire startup
+    from sqlalchemy import text
+    try:
+        # Try PostgreSQL syntax
+        async with engine.begin() as conn:
             await conn.execute(text("ALTER TABLE bookings ADD COLUMN IF NOT EXISTS confirmation_code VARCHAR"))
-        except Exception:
-            # SQLite fallback
-            try:
+    except Exception:
+        # Try SQLite fallback
+        try:
+            async with engine.begin() as conn:
                 await conn.execute(text("ALTER TABLE bookings ADD COLUMN confirmation_code VARCHAR"))
-            except Exception:
-                pass  # Ignore if it already exists
+        except Exception:
+            pass  # Ignore if it already exists or fails
