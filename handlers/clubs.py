@@ -29,7 +29,7 @@ async def show_clubs_list(event: Message | CallbackQuery):
                 await event.answer("Нет доступных клубов.")
             return
         
-        text = "🏢 <b>Доступные клубы:</b>\n\nВыберите клуб для просмотра деталей:"
+        text = "🏢 <b>Выберите клуб:</b>"
         keyboard = get_clubs_keyboard(clubs)
         
         if isinstance(event, CallbackQuery):
