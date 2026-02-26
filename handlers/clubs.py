@@ -266,8 +266,16 @@ async def show_zone_computers(callback: CallbackQuery):
     async with async_session_factory() as session:
         club = await session.get(Club, club_id)
         
-        driver = DriverFactory.get_driver(club.driver_type, {"club_id": club.id, **club.connection_config})
-        computers = await driver.get_computers()
+        if not club:
+            await callback.answer("❌ Клуб не найден.", show_alert=True)
+            return
+        
+        try:
+            driver = DriverFactory.get_driver(club.driver_type, {"club_id": club.id, **club.connection_config})
+            computers = await driver.get_computers()
+        except Exception as e:
+            await callback.answer(f"❌ Ошибка загрузки ПК: {str(e)[:100]}", show_alert=True)
+            return
         
         # Filter by zone
         zone_computers = [pc for pc in computers if pc.zone == zone_name]
@@ -275,13 +283,6 @@ async def show_zone_computers(callback: CallbackQuery):
         if not zone_computers:
             await callback.answer("В этой зоне нет компьютеров.", show_alert=True)
             return
-            
-        # Use existing PC keyboard but with filtered list
-        # Pass a "back to zones" callback if possible, but get_computers_keyboard has hardcoded back button
-        # We might need to update get_computers_keyboard to accept custom back callback or handle it
-        
-        # For now, let's just show them. The back button in get_computers_keyboard goes to "club:{club_id}"
-        # Ideally it should go back to "view_pcs:{club_id}" (which now shows zones)
         
         text = f"💻 <b>Компьютеры в зоне {zone_name}</b>\n\nВыберите ПК для бронирования:"
         
