@@ -485,24 +485,37 @@ function selectDate(offset, btn) {
     tg.HapticFeedback.selectionChanged();
 }
 
+// Helper: Get current time in Tashkent (UTC+5)
+function nowTashkent() {
+    const now = new Date();
+    // Convert to UTC, then add 5 hours for Tashkent
+    const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
+    return new Date(utc + (5 * 3600000));
+}
+
+// Helper: Format date as YYYY-MM-DD in Tashkent timezone
+function tashkentDateStr(dayOffset = 0) {
+    const d = nowTashkent();
+    d.setDate(d.getDate() + dayOffset);
+    return d.toISOString().split('T')[0];
+}
+
 async function renderTimeGrid() {
     const grid = document.getElementById('time-grid');
     grid.innerHTML = '';
 
-    const now = new Date();
+    const tashkentNow = nowTashkent();
     const isToday = bookingState.dayOffset === 0;
-    const currentHour = now.getHours();
+    const currentHour = tashkentNow.getHours();
 
-    // Calculate target date for API call
-    const targetDate = new Date();
-    targetDate.setDate(targetDate.getDate() + bookingState.dayOffset);
-    const dateStr = targetDate.toISOString().split('T')[0]; // YYYY-MM-DD
+    // Calculate target date for API call using Tashkent time
+    const dateStr = tashkentDateStr(bookingState.dayOffset);
 
-    // Show loading skeleton while fetching
-    for (let h = 10; h < 24; h++) {
+    // Show loading skeleton while fetching (all 24 hours)
+    for (let h = 0; h < 24; h++) {
         const slot = document.createElement('button');
         slot.className = 'time-slot skeleton';
-        slot.textContent = `${h}:00`;
+        slot.textContent = `${String(h).padStart(2, '0')}:00`;
         grid.appendChild(slot);
     }
 
@@ -522,16 +535,16 @@ async function renderTimeGrid() {
         }
     }
 
-    // Re-render with real data
+    // Re-render with real data (all 24 hours, matching bot)
     grid.innerHTML = '';
-    for (let h = 10; h < 24; h++) {
+    for (let h = 0; h < 24; h++) {
         const slot = document.createElement('button');
         slot.className = 'time-slot';
-        slot.textContent = `${h}:00`;
+        slot.textContent = `${String(h).padStart(2, '0')}:00`;
 
         let disabled = false;
 
-        // Disable past hours
+        // Disable past hours (using Tashkent time)
         if (isToday && h <= currentHour) {
             disabled = true;
             slot.classList.add('disabled');
@@ -621,9 +634,12 @@ async function confirmBooking() {
     btn.disabled = true;
 
     try {
-        const date = new Date();
-        date.setDate(date.getDate() + bookingState.dayOffset);
-        date.setHours(bookingState.selectedHour, 0, 0, 0);
+        // Build start_time in Tashkent timezone (UTC+5)
+        const tashkent = nowTashkent();
+        tashkent.setDate(tashkent.getDate() + bookingState.dayOffset);
+        tashkent.setHours(bookingState.selectedHour, 0, 0, 0);
+        // Convert Tashkent time back to UTC for API (subtract 5 hours)
+        const startTimeUTC = new Date(tashkent.getTime() - (5 * 3600000));
 
         let userId = 0;
         if (tg.initDataUnsafe && tg.initDataUnsafe.user) {
@@ -637,7 +653,7 @@ async function confirmBooking() {
             user_id: userId,
             club_id: parseInt(clubId),
             computer_id: String(selectedComputer.id),
-            start_time: date.toISOString(),
+            start_time: startTimeUTC.toISOString(),
             duration_minutes: bookingState.durationMinutes
         };
 

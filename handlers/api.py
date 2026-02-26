@@ -352,12 +352,12 @@ async def check_availability(
                 raise HTTPException(status_code=404, detail="Computer not found")
             item_name = item.name
 
-        # Query Bookings
+        # Query Bookings using item_id (reliable) instead of computer_name
         result = await session.execute(
             select(Booking).where(
                 and_(
                     Booking.club_id == club_id,
-                    Booking.computer_name == item_name,
+                    Booking.item_id == computer_id_int,
                     Booking.status.in_(["CONFIRMED", "ACTIVE"])
                 )
             )
@@ -365,12 +365,17 @@ async def check_availability(
         bookings = result.scalars().all()
         
         occupied_hours = set()
+        from utils.timezone import TASHKENT_TZ
         for b in bookings:
+            # Compare using Tashkent timezone for consistency
+            b_start = b.start_time.astimezone(TASHKENT_TZ) if b.start_time.tzinfo else b.start_time
+            b_end = b.end_time.astimezone(TASHKENT_TZ) if b.end_time.tzinfo else b.end_time
+            
             for hour in range(24):
-                check_time = datetime.combine(target_date, datetime.min.time().replace(hour=hour))
+                check_time = datetime.combine(target_date, datetime.min.time().replace(hour=hour, tzinfo=TASHKENT_TZ))
                 check_end = check_time + timedelta(hours=1)
                 
-                if (b.start_time < check_end) and (b.end_time > check_time):
+                if (b_start < check_end) and (b_end > check_time):
                     occupied_hours.add(hour)
                     
         return {"occupied_hours": sorted(list(occupied_hours))}
