@@ -146,7 +146,14 @@ async function loadClubData() {
             }
         });
         const clubsData = await clubResponse.json();
-        const clubs = clubsData.clubs || []; // Extract clubs from paginated response
+
+        // Bulletproof array extraction (handles both new paginated {clubs: []} and old raw list [...])
+        let clubs = [];
+        if (Array.isArray(clubsData)) {
+            clubs = clubsData;
+        } else if (clubsData && Array.isArray(clubsData.clubs)) {
+            clubs = clubsData.clubs;
+        }
 
         // Check if clubId is present
         if (!clubId) {
@@ -155,7 +162,8 @@ async function loadClubData() {
             return;
         }
 
-        const club = clubs.find(c => c.id == clubId);
+        // Use filter instead of find to prevent "is not a function" on older Android WebViews
+        const club = clubs.filter(c => c.id == clubId)[0];
 
         if (club) {
             currentVenueType = club.venue_type || 'computer_club'; // Set global type
