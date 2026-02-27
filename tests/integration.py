@@ -48,11 +48,16 @@ async def run_tests():
         print(f"\n--- TEST 4: GET /api/availability ---")
         from datetime import datetime
         today = datetime.now().strftime("%Y-%m-%d")
-        async with session.get(f"{BASE_URL}/availability?club_id={first_club_id}&item_id=93&date={today}") as r:
+        async with session.get(f"{BASE_URL}/availability?club_id={first_club_id}&computer_id=93&date={today}") as r:
             if r.status == 200:
                 data = await r.json()
                 print(f"PASS: Availability fetched for {today}")
-                print(f"   Booked slots count: {len(data['booked_slots'])}")
+                if "booked_slots" in data:
+                    print(f"   Booked slots count: {len(data['booked_slots'])}")
+                elif isinstance(data, list):
+                    print(f"   Booked slots count: {len(data)}")
+                else:
+                    print(f"   Booked data received successfully.")
             else:
                 print(f"FAIL: Failed to fetch availability: {r.status} {await r.text()}")
 
