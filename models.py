@@ -19,8 +19,14 @@ class User(Base):
     
     # Age verification
     age_confirmed = Column(Boolean, default=False)  # User confirmed they are 18+
+    
+    # Referral system
+    referral_code = Column(String, unique=True, nullable=True, index=True)  # This user's referral code
+    referred_by = Column(Integer, ForeignKey("users.id"), nullable=True)  # Who referred this user
+    referral_bonus_used = Column(Boolean, default=False)  # Has their first booking bonus been applied
 
     bookings = relationship("Booking", back_populates="user")
+    reviews = relationship("Review", foreign_keys="Review.user_id", back_populates="user")
 
 class Club(Base):
     __tablename__ = "clubs"
@@ -42,12 +48,19 @@ class Club(Base):
     # Contact and info
     admin_phone = Column(String, nullable=True)
     working_hours = Column(String, nullable=True, default="24/7")
+    description = Column(String, nullable=True)  # Short description for club card
+    image_url = Column(String, nullable=True)  # Club photo URL
+    wifi_speed = Column(String, nullable=True)  # e.g. "500 Mbps"
+    
+    # Club admin Telegram IDs (comma-separated)
+    club_admin_tg_ids = Column(String, nullable=True)  # "123456,789012"
 
     is_active = Column(Boolean, default=True)
     
     bookings = relationship("Booking", back_populates="club")
     computers = relationship("Computer", back_populates="club") # For Computer Clubs
     tables = relationship("RestaurantTable", back_populates="club") # For Restaurants
+    reviews = relationship("Review", back_populates="club")
     
     def to_dict(self):
         return {
@@ -61,6 +74,9 @@ class Club(Base):
             "driver_type": self.driver_type,
             "admin_phone": self.admin_phone,
             "working_hours": self.working_hours,
+            "description": self.description,
+            "image_url": self.image_url,
+            "wifi_speed": self.wifi_speed,
             "is_active": self.is_active
         }
 
@@ -157,6 +173,7 @@ class Admin(Base):
     __tablename__ = "admins"
     id = Column(Integer, primary_key=True, index=True)
     tg_id = Column(BigInteger, unique=True, nullable=False)
+    club_id = Column(Integer, ForeignKey("clubs.id"), nullable=True)  # None = super-admin
     created_at = Column(DateTime(timezone=True), default=lambda: now_tashkent())
 
 class AuditLog(Base):
@@ -178,3 +195,19 @@ class AuditLog(Base):
             "previous_hash": self.previous_hash,
             "hash": self.hash
         }
+
+
+class Review(Base):
+    """User review of a booking/club after it's completed."""
+    __tablename__ = "reviews"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    club_id = Column(Integer, ForeignKey("clubs.id"), nullable=False)
+    booking_id = Column(Integer, ForeignKey("bookings.id"), nullable=False, unique=True)  # One review per booking
+    rating = Column(Integer, nullable=False)  # 1-5 stars
+    comment = Column(String, nullable=True)  # Optional text review
+    created_at = Column(DateTime(timezone=True), default=lambda: now_tashkent())
+
+    user = relationship("User", foreign_keys=[user_id], back_populates="reviews")
+    club = relationship("Club", back_populates="reviews")

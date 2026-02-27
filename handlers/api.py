@@ -111,7 +111,9 @@ async def get_clubs(
     limit: int = Query(10, ge=1, le=100, description="Items per page"),
     is_active: bool = Query(True, description="Show only active clubs")
 ):
-    """Get clubs with pagination."""
+    """Get clubs with pagination, live seat count, and average ratings."""
+    from models import Review, Computer
+    from datetime import datetime
     async with async_session_factory() as session:
         # Get total count
         count_query = select(func.count(Club.id)).where(Club.is_active == is_active)
@@ -127,14 +129,48 @@ async def get_clubs(
         )
         clubs = result.scalars().all()
         
+        now = datetime.utcnow()
+        clubs_data = []
+        for c in clubs:
+            d = c.to_dict()
+
+            # Live seat count: total computers minus currently booked
+            total_seats = await session.scalar(
+                select(func.count(Computer.id)).where(Computer.club_id == c.id, Computer.is_active == True)
+            ) or 0
+            occupied_seats = await session.scalar(
+                select(func.count(Booking.item_id)).where(
+                    Booking.club_id == c.id,
+                    Booking.status.in_(["CONFIRMED", "ACTIVE"]),
+                    Booking.start_time <= now,
+                    Booking.end_time > now
+                )
+            ) or 0
+            free_seats = max(0, total_seats - occupied_seats)
+
+            # Average rating
+            avg_rating = await session.scalar(
+                select(func.avg(Review.rating)).where(Review.club_id == c.id)
+            )
+            review_count = await session.scalar(
+                select(func.count(Review.id)).where(Review.club_id == c.id)
+            ) or 0
+
+            d["total_seats"] = total_seats
+            d["free_seats"] = free_seats
+            d["avg_rating"] = round(float(avg_rating), 1) if avg_rating else None
+            d["review_count"] = review_count
+            clubs_data.append(d)
+        
         import math
         return {
-            "clubs": [c.to_dict() for c in clubs],
+            "clubs": clubs_data,
             "page": page,
             "limit": limit,
             "total": total,
             "pages": math.ceil(total / limit) if total > 0 else 0
         }
+
 
 @router.get("/clubs/{club_id}/computers")
 async def get_items(

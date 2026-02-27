@@ -157,3 +157,106 @@ async def send_reminder_notifications(bot):
         
         # Check every minute
         await asyncio.sleep(60)
+
+
+async def notify_club_admin_new_booking(bot, booking, user, club):
+    """
+    Immediately notify club admin(s) about a new booking.
+    Called directly from the booking creation handler (not a loop).
+    """
+    try:
+        if not getattr(club, 'club_admin_tg_ids', None):
+            return
+
+        admin_ids = [int(x.strip()) for x in club.club_admin_tg_ids.split(",") if x.strip().isdigit()]
+
+        start_str = booking.start_time.strftime('%d.%m %H:%M')
+        end_str = booking.end_time.strftime('%H:%M')
+
+        text = (
+            f"🔔 <b>Новая бронь!</b>\n\n"
+            f"👤 Клиент: {user.full_name or 'Неизвестен'}"
+            f"{f' (@{user.username})' if user.username else ''}\n"
+            f"💻 {booking.computer_name}\n"
+            f"🕐 {start_str} – {end_str}\n"
+            f"🎟 Код: <code>{booking.confirmation_code or '—'}</code>\n"
+            f"📋 Бронь №{booking.id}"
+        )
+
+        for admin_tg_id in admin_ids:
+            try:
+                await bot.send_message(chat_id=admin_tg_id, text=text, parse_mode="HTML")
+            except Exception as e:
+                logger.warning("Could not notify club admin", admin_tg_id=admin_tg_id, error=str(e))
+
+    except Exception as e:
+        logger.error("Error in notify_club_admin_new_booking", error=str(e))
+
+
+async def send_review_requests(bot):
+    """
+    After a booking is COMPLETED, send a review request to the client.
+    Runs every 5 minutes.
+    """
+    while True:
+        try:
+            async with async_session_factory() as session:
+                from models import Review
+                from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+                now = now_tashkent()
+                # Find bookings completed in the last 5–10 minutes, no review yet
+                window_start = now - timedelta(minutes=10)
+                window_end = now - timedelta(minutes=5)
+
+                result = await session.execute(
+                    select(Booking).where(
+                        and_(
+                            Booking.status == "COMPLETED",
+                            Booking.end_time >= window_start,
+                            Booking.end_time <= window_end,
+                        )
+                    )
+                )
+                bookings = result.scalars().all()
+
+                for booking in bookings:
+                    # Check if review already exists
+                    existing = await session.execute(
+                        select(Review).where(Review.booking_id == booking.id)
+                    )
+                    if existing.scalar():
+                        continue
+
+                    user = await session.get(User, booking.user_id)
+                    club = await session.get(Club, booking.club_id)
+                    if not user or not club:
+                        continue
+
+                    try:
+                        text = (
+                            f"🎮 <b>Как прошёл сеанс?</b>\n\n"
+                            f"Вы только что закончили играть в <b>{club.name}</b>.\n"
+                            f"Оцените ваш опыт — это займёт 5 секунд и помогает другим игрокам!\n\n"
+                            f"Поставьте оценку:"
+                        )
+                        keyboard = InlineKeyboardMarkup(inline_keyboard=[[
+                            InlineKeyboardButton(text="1 ⭐", callback_data=f"review:{booking.id}:1"),
+                            InlineKeyboardButton(text="2 ⭐", callback_data=f"review:{booking.id}:2"),
+                            InlineKeyboardButton(text="3 ⭐", callback_data=f"review:{booking.id}:3"),
+                            InlineKeyboardButton(text="4 ⭐", callback_data=f"review:{booking.id}:4"),
+                            InlineKeyboardButton(text="5 ⭐", callback_data=f"review:{booking.id}:5"),
+                        ]])
+                        await bot.send_message(
+                            chat_id=user.tg_id,
+                            text=text,
+                            reply_markup=keyboard,
+                            parse_mode="HTML"
+                        )
+                        logger.info("Sent review request", booking_id=booking.id)
+                    except Exception as e:
+                        logger.warning("Could not send review request", booking_id=booking.id, error=str(e))
+
+        except Exception as e:
+            logger.error("Error in review request task", error=str(e))
+
+        await asyncio.sleep(300)  # Check every 5 minutes

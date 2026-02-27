@@ -225,10 +225,23 @@ function renderClubSelection(clubs) {
 
         const typeIcon = club.venue_type === 'restaurant' ? '🍽️' : '🎮';
 
+        // Live seats badge
+        const seatsBadge = club.total_seats > 0
+            ? `<span class="seats-badge ${club.free_seats > 0 ? 'seats-free' : 'seats-full'}">
+                 ${club.free_seats > 0 ? '🟢' : '🔴'} ${club.free_seats}/${club.total_seats} мест
+               </span>`
+            : '';
+
+        // Rating badge
+        const ratingBadge = club.avg_rating
+            ? `<span class="rating-badge">⭐ ${club.avg_rating} (${club.review_count})</span>`
+            : '';
+
         card.innerHTML = `
             <div>
                 <div class="club-title">${typeIcon} ${club.name}</div>
                 <div class="club-location">${club.city}, ${club.address}</div>
+                <div class="club-meta">${seatsBadge} ${ratingBadge}</div>
             </div>
             <div class="club-action">➜</div>
         `;

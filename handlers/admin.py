@@ -82,28 +82,86 @@ async def close_admin(callback: CallbackQuery):
 # --- Statistics ---
 @router.callback_query(F.data == "admin_stats")
 async def show_stats(callback: CallbackQuery):
+    from datetime import datetime, timedelta
+    from utils.timezone import now_tashkent, TASHKENT_TZ
+    from sqlalchemy import and_, desc
+    from models import Computer, Review
+
     async with async_session_factory() as session:
+        now = now_tashkent()
+        today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        week_start = today_start - timedelta(days=7)
+
+        # --- Basic counts ---
         users_count = await session.scalar(select(func.count(User.id)))
         clubs_count = await session.scalar(select(func.count(Club.id)))
-        bookings_count = await session.scalar(select(func.count(Booking.id)))
-        
-        # Active bookings
-        active_bookings = await session.scalar(
+        bookings_total = await session.scalar(select(func.count(Booking.id)))
+        active_now = await session.scalar(
             select(func.count(Booking.id)).where(Booking.status == "ACTIVE")
         )
 
+        # --- Today ---
+        today_bookings = await session.scalar(
+            select(func.count(Booking.id)).where(Booking.created_at >= today_start)
+        )
+
+        # --- This week ---
+        week_bookings = await session.scalar(
+            select(func.count(Booking.id)).where(Booking.created_at >= week_start)
+        )
+
+        # --- Revenue estimate (price_per_hour * duration) ---
+        week_result = await session.execute(
+            select(Booking).where(
+                and_(Booking.created_at >= week_start, Booking.status.in_(["COMPLETED", "ACTIVE", "CONFIRMED"]))
+            )
+        )
+        week_bs = week_result.scalars().all()
+        revenue = 0
+        for b in week_bs:
+            if b.item_id:
+                pc = await session.get(Computer, b.item_id)
+                if pc and pc.price_per_hour:
+                    duration_h = (b.end_time - b.start_time).total_seconds() / 3600
+                    revenue += int(pc.price_per_hour * duration_h)
+
+        # --- Reviews ---
+        reviews_count = await session.scalar(select(func.count(Review.id)))
+        avg_rating_result = await session.scalar(select(func.avg(Review.rating)))
+        avg_rating = f"{avg_rating_result:.1f}" if avg_rating_result else "—"
+
+        # --- Top 3 PCs by booking count ---
+        top_pcs_result = await session.execute(
+            select(Booking.computer_name, func.count(Booking.id).label("cnt"))
+            .group_by(Booking.computer_name)
+            .order_by(desc("cnt"))
+            .limit(3)
+        )
+        top_pcs = top_pcs_result.all()
+        top_pcs_text = "\n".join(
+            [f"  {i+1}. {row.computer_name} — {row.cnt} броней" for i, row in enumerate(top_pcs)]
+        ) or "  Нет данных"
+
     text = (
-        "📊 <b>Статистика бота</b>\n\n"
-        f"👥 Пользователей: {users_count}\n"
-        f"🏢 Клубов: {clubs_count}\n"
-        f"📝 Всего броней: {bookings_count}\n"
-        f"🟢 Сейчас играют: {active_bookings}"
+        f"📊 <b>Статистика платформы</b>\n\n"
+        f"👥 Пользователей: <b>{users_count}</b>\n"
+        f"🏢 Клубов: <b>{clubs_count}</b>\n"
+        f"🟢 Активных сеансов: <b>{active_now}</b>\n\n"
+        f"📅 <b>Брони сегодня:</b> {today_bookings}\n"
+        f"📅 <b>Брони за неделю:</b> {week_bookings}\n"
+        f"📝 Всего броней: {bookings_total}\n\n"
+        f"💰 <b>Выручка за неделю:</b> ~{revenue:,} сум\n\n"
+        f"⭐ <b>Отзывы:</b> {reviews_count} (средний: {avg_rating})\n\n"
+        f"🏆 <b>Популярные места:</b>\n{top_pcs_text}"
     )
-    
+
     from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
-    back_kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="« Назад", callback_data="admin_back_main")]])
-    
+    back_kb = InlineKeyboardMarkup(inline_keyboard=[[
+        InlineKeyboardButton(text="🔄 Обновить", callback_data="admin_stats"),
+        InlineKeyboardButton(text="« Назад", callback_data="admin_back_main")
+    ]])
     await safe_edit(callback.message, text, reply_markup=back_kb, parse_mode="HTML")
+
 
 # --- Club Management ---
 @router.callback_query(F.data == "admin_clubs")

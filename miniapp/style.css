@@ -961,3 +961,41 @@ body {
     gap: 8px;
     align-items: center;
 }
+
+/* --- Club Card Meta (seats & rating) --- */
+.club-meta {
+    display: flex;
+    gap: 8px;
+    margin-top: 6px;
+    flex-wrap: wrap;
+    align-items: center;
+}
+
+.seats-badge,
+.rating-badge {
+    font-size: 11px;
+    font-weight: 600;
+    padding: 3px 8px;
+    border-radius: 8px;
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+}
+
+.seats-free {
+    background: rgba(0, 255, 157, 0.15);
+    color: var(--success);
+    border: 1px solid rgba(0, 255, 157, 0.3);
+}
+
+.seats-full {
+    background: rgba(255, 0, 85, 0.1);
+    color: var(--error);
+    border: 1px solid rgba(255, 0, 85, 0.3);
+}
+
+.rating-badge {
+    background: rgba(255, 200, 0, 0.1);
+    color: #ffc800;
+    border: 1px solid rgba(255, 200, 0, 0.3);
+}

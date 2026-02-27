@@ -163,6 +163,8 @@ async def command_start_handler(message: Message) -> None:
 
 # Import handlers
 from handlers import clubs, settings, age_verification, filters, admin, webapp, users
+from handlers import referral, reviews
+
 
 # Register routers
 dp.include_router(admin.router) # Admin router first
@@ -172,6 +174,8 @@ dp.include_router(filters.router)
 dp.include_router(clubs.router)
 dp.include_router(settings.router)
 dp.include_router(users.router) # User profile & bookings
+dp.include_router(reviews.router) # Review callbacks
+dp.include_router(referral.router) # Referral /referral command
 dp.include_router(start_router)
 
 async def main():
@@ -187,10 +191,11 @@ async def main():
     await seed_test_clubs()
     
     # Start background tasks
-    from background_tasks import check_no_show_bookings, check_auto_complete_bookings, send_reminder_notifications
+    from background_tasks import check_no_show_bookings, check_auto_complete_bookings, send_reminder_notifications, send_review_requests
     asyncio.create_task(check_no_show_bookings())
     asyncio.create_task(check_auto_complete_bookings())
     asyncio.create_task(send_reminder_notifications(bot))
+    asyncio.create_task(send_review_requests(bot))
 
     # Start FastAPI server in background
     async def start_server():
@@ -210,6 +215,7 @@ async def main():
         BotCommand(command="help", description="🆘 Помощь"),
         BotCommand(command="profile", description="👤 Мой профиль"),
         BotCommand(command="phone", description="📱 Указать номер телефона"),
+        BotCommand(command="referral", description="🎁 Реферальная программа"),
         BotCommand(command="admin", description="🔐 Админ-панель")
     ])
     
