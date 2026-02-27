@@ -147,24 +147,42 @@ async def admin_promo_create_finish(message: Message, state: FSMContext):
 
 @router.callback_query(F.data == "admin_promo_list")
 async def admin_promo_list(callback: CallbackQuery):
-    """Show all active promo codes."""
+    """Show all active promo codes with delete options."""
     async with async_session_factory() as session:
         result = await session.execute(
             select(PromoCode).where(PromoCode.is_active == True).order_by(PromoCode.created_at.desc()).limit(20)
         )
         promos = result.scalars().all()
 
+    kb_buttons = []
+    
     if not promos:
         text = "📭 <b>Нет активных промокодов</b>"
     else:
-        lines = ["🎫 <b>Активные промокоды:</b>\n"]
+        text = "🎫 <b>Активные промокоды:</b>\nНажмите на промокод, чтобы удалить его (деактивировать)."
         for p in promos:
             uses = f"{p.uses_count}/{p.max_uses}" if p.max_uses else f"{p.uses_count}/∞"
-            lines.append(f"• <code>{p.code}</code> — {p.discount_percent}% ({uses} использ.)")
-        text = "\n".join(lines)
+            btn_text = f"❌ {p.code} — {p.discount_percent}% ({uses})"
+            kb_buttons.append([InlineKeyboardButton(text=btn_text, callback_data=f"admin_promo_delete:{p.id}")])
 
-    kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="➕ Создать промокод", callback_data="admin_promo_create")],
-        [InlineKeyboardButton(text="« Назад", callback_data="admin_back_main")]
-    ])
+    kb_buttons.append([InlineKeyboardButton(text="➕ Создать промокод", callback_data="admin_promo_create")])
+    kb_buttons.append([InlineKeyboardButton(text="« Назад", callback_data="admin_back_main")])
+    
+    kb = InlineKeyboardMarkup(inline_keyboard=kb_buttons)
     await callback.message.edit_text(text, parse_mode="HTML", reply_markup=kb)
+
+
+@router.callback_query(F.data.startswith("admin_promo_delete:"))
+async def admin_promo_delete(callback: CallbackQuery):
+    """Deactivate (delete) a promo code."""
+    promo_id = int(callback.data.split(":")[1])
+    
+    async with async_session_factory() as session:
+        async with session.begin():
+            promo = await session.get(PromoCode, promo_id)
+            if promo:
+                promo.is_active = False
+                
+    await callback.answer(f"Промокод удалён!", show_alert=True)
+    # Refresh the list
+    await admin_promo_list(callback)
