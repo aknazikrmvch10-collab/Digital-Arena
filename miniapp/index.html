@@ -7,7 +7,7 @@
     <title>ArenaSlot – Бронирование</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-    <link rel="stylesheet" href="style.css?v=11">
+    <link rel="stylesheet" href="style.css?v=15">
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
 
 </head>
@@ -38,8 +38,8 @@
         <div class="header">
             <h2>📅 Мои Брони</h2>
         </div>
-        <div id="my-bookings-list" style="padding: 16px;">
-            <p style="text-align:center;color:var(--text-muted)">Загрузка...</p>
+        <div id="my-bookings-tab-list" style="padding: 16px;">
+            <p style="text-align:center;color:rgba(255,255,255,0.4)">Загрузка...</p>
         </div>
     </div>
 
@@ -113,7 +113,7 @@
         </div>
     </div>
 
-    <!-- My Bookings Modal -->
+    <!-- My Bookings Modal (kept for backward compat with openMyBookings) -->
     <div id="my-bookings-modal" class="modal" style="display: none;">
         <div class="modal-content">
             <div class="modal-header">
@@ -178,7 +178,7 @@
         </div>
     </div>
 
-    <script src="app.js?v=14"></script>
+    <script src="app.js?v=15"></script>
 </body>
 
 </html>

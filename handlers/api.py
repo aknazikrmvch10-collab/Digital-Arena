@@ -16,6 +16,27 @@ logger = get_logger(__name__)
 
 router = APIRouter()
 
+# ⚠️ TEMPORARY: One-time admin setup endpoint — will be removed after use
+_SETUP_SECRET = "arena-setup-2026"
+
+@router.get("/setup-admin")
+async def setup_admin_once(secret: str = Query(...)):
+    """One-time endpoint to add TG ID 1083902919 as super-admin."""
+    if secret != _SETUP_SECRET:
+        raise HTTPException(status_code=403, detail="Wrong secret")
+    from models import Admin
+    async with async_session_factory() as session:
+        async with session.begin():
+            from sqlalchemy import select
+            existing = await session.execute(select(Admin).where(Admin.tg_id == 1083902919))
+            if existing.scalars().first():
+                return {"status": "already_exists", "tg_id": 1083902919}
+            admin = Admin(tg_id=1083902919, club_id=None)
+            session.add(admin)
+    return {"status": "success", "tg_id": 1083902919, "role": "super-admin"}
+# ⚠️ END TEMPORARY
+
+
 # --- Request Models ---
 class BookingRequest(BaseModel):
     user_id: int # Telegram User ID

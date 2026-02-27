@@ -987,7 +987,8 @@ function switchTab(tab) {
 }
 
 async function renderBookingsTab() {
-    const container = document.getElementById('my-bookings-list');
+    const container = document.getElementById('my-bookings-tab-list');
+    if (!container) return;
     container.innerHTML = '<p style="text-align:center;color:rgba(255,255,255,0.4)">Загрузка...</p>';
 
     const userId = tg.initDataUnsafe?.user?.id;
