@@ -204,10 +204,28 @@ async def get_items(
             )
             computers = result.scalars().all()
             
+            # 🔗 SYNC: Find all CURRENTLY ACTIVE bookings for this club right now
+            # This ensures bot bookings show as occupied in the WebApp and vice versa
+            from datetime import datetime
+            now = datetime.utcnow()
+            active_bookings_result = await session.execute(
+                select(Booking.item_id).where(
+                    Booking.club_id == club_id,
+                    Booking.status.in_(["CONFIRMED", "ACTIVE"]),
+                    Booking.start_time <= now,
+                    Booking.end_time > now
+                )
+            )
+            # Set of currently occupied computer IDs
+            occupied_item_ids = set(active_bookings_result.scalars().all())
+            
             items = []
             for c in computers:
                 item = c.to_dict()
                 item['venue_type'] = 'computer_club'
+                # Mark as unavailable if it has an active booking right now
+                if c.id in occupied_item_ids:
+                    item['is_available'] = False
                 items.append(item)
             
             import math
