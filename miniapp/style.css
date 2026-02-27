@@ -936,3 +936,28 @@ body {
     color: rgba(255, 255, 255, 0.5);
     font-size: 14px;
 }
+
+/* --- QR Code Elements --- */
+.qr-btn-small {
+    background: rgba(0, 242, 255, 0.15);
+    border: 1px solid var(--primary);
+    color: var(--primary);
+    padding: 6px 12px;
+    border-radius: 8px;
+    font-size: 11px;
+    cursor: pointer;
+    font-weight: 600;
+    transition: all 0.2s;
+}
+
+.qr-btn-small:hover {
+    background: var(--primary);
+    color: #000;
+    box-shadow: 0 0 10px rgba(0, 242, 255, 0.4);
+}
+
+.booking-action-buttons {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}

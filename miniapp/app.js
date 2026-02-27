@@ -802,6 +802,14 @@ function renderUserBookings(bookings) {
     bookings.forEach(b => {
         const div = document.createElement('div');
         div.className = 'booking-card';
+
+        // Check if QR code button should be shown
+        let qrButtonHTML = '';
+        if (b.confirmation_code && (b.status === 'CONFIRMED' || b.status === 'ACTIVE')) {
+            // Need escaping for string arguments in inline onclick
+            qrButtonHTML = `<button class="qr-btn-small" onclick="showQRCode('${b.confirmation_code}')">🎟 Показать код</button>`;
+        }
+
         div.innerHTML = `
             <div class="booking-info">
                 <h4>${b.club_name}</h4>
@@ -810,7 +818,10 @@ function renderUserBookings(bookings) {
             </div>
             <div class="booking-actions">
                 <span class="status-badge ${b.status.toLowerCase()}">${b.status}</span>
-                ${b.status === 'CONFIRMED' ? `<button class="cancel-btn-small" onclick="cancelBooking(${b.id})">Отмена</button>` : ''}
+                <div class="booking-action-buttons">
+                    ${qrButtonHTML}
+                    ${b.status === 'CONFIRMED' ? `<button class="cancel-btn-small" onclick="cancelBooking(${b.id})">Отмена</button>` : ''}
+                </div>
             </div>
         `;
         list.appendChild(div);
@@ -901,6 +912,38 @@ async function cancelBooking(bookingId) {
         // 6️⃣ Restore button in any case
         btnElement.textContent = originalText;
         btnElement.disabled = false;
+    }
+}
+
+// --- QR Code Logic ---
+let currentQRCode = null;
+
+function showQRCode(code) {
+    const modal = document.getElementById('qr-modal');
+    const container = document.getElementById('qr-code-container');
+    const textElement = document.getElementById('qr-code-text');
+
+    // Clear previous QR
+    container.innerHTML = '';
+    textElement.textContent = code;
+
+    // Generate new QR using QRCode.js
+    currentQRCode = new QRCode(container, {
+        text: code,
+        width: 180,
+        height: 180,
+        colorDark: "#000000",
+        colorLight: "#ffffff",
+        correctLevel: QRCode.CorrectLevel.L
+    });
+
+    modal.style.display = 'flex';
+}
+
+function closeQRModal() {
+    document.getElementById('qr-modal').style.display = 'none';
+    if (currentQRCode) {
+        currentQRCode.clear();
     }
 }
 
