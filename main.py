@@ -164,6 +164,7 @@ async def command_start_handler(message: Message) -> None:
 # Import handlers
 from handlers import clubs, settings, age_verification, filters, admin, webapp, users
 from handlers import referral, reviews
+from handlers import language, promo, broadcast, club_settings
 
 
 # Register routers
@@ -176,6 +177,10 @@ dp.include_router(settings.router)
 dp.include_router(users.router) # User profile & bookings
 dp.include_router(reviews.router) # Review callbacks
 dp.include_router(referral.router) # Referral /referral command
+dp.include_router(language.router) # Language /language command
+dp.include_router(promo.router) # Promo codes /promo command
+dp.include_router(broadcast.router) # Admin broadcast
+dp.include_router(club_settings.router) # Club settings FSM
 dp.include_router(start_router)
 
 async def main():
@@ -216,6 +221,8 @@ async def main():
         BotCommand(command="profile", description="👤 Мой профиль"),
         BotCommand(command="phone", description="📱 Указать номер телефона"),
         BotCommand(command="referral", description="🎁 Реферальная программа"),
+        BotCommand(command="promo", description="🎫 Ввести промокод"),
+        BotCommand(command="language", description="🌍 Изменить язык"),
         BotCommand(command="admin", description="🔐 Админ-панель")
     ])
     

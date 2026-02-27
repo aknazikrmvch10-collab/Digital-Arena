@@ -46,6 +46,9 @@ async def init_db():
         # Wave 2: Admin club_id
         ("ALTER TABLE admins ADD COLUMN IF NOT EXISTS club_id INTEGER",
          "ALTER TABLE admins ADD COLUMN club_id INTEGER"),
+        # Wave 3: User language preference
+        ("ALTER TABLE users ADD COLUMN IF NOT EXISTS language VARCHAR DEFAULT 'ru'",
+         "ALTER TABLE users ADD COLUMN language VARCHAR DEFAULT 'ru'"),
     ]
     
     for pg_sql, sqlite_sql in migrations:

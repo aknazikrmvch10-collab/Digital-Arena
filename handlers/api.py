@@ -661,6 +661,45 @@ async def web_me(request: Request):
         }
 
 
+@router.get("/web/profile")
+async def web_profile(request: Request):
+    """Return user's profile data for the Mini App Profile tab."""
+    user_data = await get_web_user(request)
+    async with async_session_factory() as session:
+        result = await session.execute(select(User).where(User.tg_id == user_data["tg_id"]))
+        user = result.scalars().first()
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+        return {
+            "tg_id": user.tg_id,
+            "full_name": user.full_name,
+            "username": user.username,
+            "phone": user.phone,
+            "referral_code": getattr(user, 'referral_code', None),
+            "language": getattr(user, 'language', 'ru'),
+        }
+
+
+class LanguageUpdate(BaseModel):
+    tg_id: int
+    language: str
+
+
+@router.post("/web/language")
+async def web_set_language(body: LanguageUpdate, request: Request):
+    """Update user language preference from the Mini App."""
+    if body.language not in ('ru', 'uz', 'kz'):
+        raise HTTPException(status_code=400, detail="Invalid language")
+    async with async_session_factory() as session:
+        async with session.begin():
+            result = await session.execute(select(User).where(User.tg_id == body.tg_id))
+            user = result.scalars().first()
+            if not user:
+                raise HTTPException(status_code=404, detail="User not found")
+            user.language = body.language
+    return {"success": True, "language": body.language}
+
+
 @router.get("/web/bookings")
 async def web_user_bookings(request: Request):
     """Get bookings for authenticated web user."""
@@ -728,3 +767,114 @@ async def web_cancel_booking(booking_id: int, request: Request):
         
         return {"success": True, "message": "Бронь отменена"}
 
+
+# ============================================================
+# ADMIN PANEL API — used by miniapp/admin_panel.html
+# ============================================================
+
+async def _require_admin(request: Request) -> int:
+    """Check X-Admin-TG-ID header against admins table. Returns tg_id or raises 403."""
+    from models import Admin
+    tg_id_str = request.headers.get("X-Admin-TG-ID")
+    if not tg_id_str or not tg_id_str.isdigit():
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    tg_id = int(tg_id_str)
+    async with async_session_factory() as session:
+        result = await session.execute(select(Admin).where(Admin.tg_id == tg_id))
+        admin = result.scalars().first()
+    if not admin:
+        raise HTTPException(status_code=403, detail="Forbidden")
+    return tg_id
+
+
+@router.get("/admin/stats")
+async def admin_stats_api(request: Request):
+    """Dashboard stats for the web admin panel."""
+    from models import Review, Computer
+    from datetime import timedelta
+    await _require_admin(request)
+
+    async with async_session_factory() as session:
+        now = datetime.utcnow()
+        today_start_utc = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        week_start = today_start_utc - timedelta(days=7)
+
+        users_total = await session.scalar(select(func.count(User.id))) or 0
+        active_now = await session.scalar(
+            select(func.count(Booking.id)).where(Booking.status == "ACTIVE")
+        ) or 0
+        bookings_today = await session.scalar(
+            select(func.count(Booking.id)).where(Booking.created_at >= today_start_utc)
+        ) or 0
+        bookings_total = await session.scalar(select(func.count(Booking.id))) or 0
+
+        avg_rating_val = await session.scalar(select(func.avg(Review.rating)))
+        avg_rating = round(float(avg_rating_val), 1) if avg_rating_val else None
+
+        # Daily bookings for chart (last 7 days)
+        daily_bookings = []
+        for i in range(6, -1, -1):
+            day_start = today_start_utc - timedelta(days=i)
+            day_end = day_start + timedelta(days=1)
+            cnt = await session.scalar(
+                select(func.count(Booking.id)).where(
+                    and_(Booking.created_at >= day_start, Booking.created_at < day_end)
+                )
+            ) or 0
+            daily_bookings.append({
+                "date": day_start.strftime("%d.%m"),
+                "count": cnt
+            })
+
+        # Recent 20 bookings
+        recent_result = await session.execute(
+            select(Booking).order_by(Booking.created_at.desc()).limit(20)
+        )
+        recent = recent_result.scalars().all()
+        recent_bookings = []
+        for b in recent:
+            user = await session.get(User, b.user_id)
+            club = await session.get(Club, b.club_id)
+            recent_bookings.append({
+                "id": b.id,
+                "user_name": user.full_name if user else "Unknown",
+                "club_name": club.name if club else "Unknown",
+                "computer_name": b.computer_name,
+                "status": b.status,
+                "start_time": b.start_time.isoformat() if b.start_time else None,
+            })
+
+    return {
+        "users_total": users_total,
+        "active_now": active_now,
+        "bookings_today": bookings_today,
+        "bookings_total": bookings_total,
+        "avg_rating": avg_rating,
+        "daily_bookings": daily_bookings,
+        "recent_bookings": recent_bookings,
+    }
+
+
+@router.get("/admin/bookings")
+async def admin_bookings_api(request: Request, limit: int = Query(50, le=200)):
+    """Full bookings list for the web admin panel."""
+    await _require_admin(request)
+    async with async_session_factory() as session:
+        result = await session.execute(
+            select(Booking).order_by(Booking.created_at.desc()).limit(limit)
+        )
+        bookings = result.scalars().all()
+        items = []
+        for b in bookings:
+            user = await session.get(User, b.user_id)
+            club = await session.get(Club, b.club_id)
+            items.append({
+                "id": b.id,
+                "user_name": user.full_name if user else "Unknown",
+                "club_name": club.name if club else "Unknown",
+                "computer_name": b.computer_name,
+                "status": b.status,
+                "start_time": b.start_time.isoformat() if b.start_time else None,
+                "end_time": b.end_time.isoformat() if b.end_time else None,
+            })
+    return {"bookings": items}

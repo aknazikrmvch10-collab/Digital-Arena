@@ -7,7 +7,8 @@ def get_admin_main_menu() -> InlineKeyboardMarkup:
     
     builder.button(text="📊 Статистика", callback_data="admin_stats")
     builder.button(text="🏢 Управление клубами", callback_data="admin_clubs")
-    builder.button(text="📢 Рассылка (скоро)", callback_data="admin_broadcast")
+    builder.button(text="📢 Рассылка", callback_data="admin_broadcast")
+    builder.button(text="🎫 Промокоды", callback_data="admin_promo_list")
     builder.button(text="❌ Закрыть", callback_data="admin_close")
     
     builder.adjust(1)

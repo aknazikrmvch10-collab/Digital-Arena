@@ -999,3 +999,98 @@ body {
     color: #ffc800;
     border: 1px solid rgba(255, 200, 0, 0.3);
 }
+
+/* --- Mini App 2.0: Bottom Navigation --- */
+.hidden {
+    display: none !important;
+}
+
+.bottom-nav {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 64px;
+    background: rgba(18, 18, 28, 0.97);
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    display: flex;
+    align-items: stretch;
+    z-index: 1000;
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    padding-bottom: env(safe-area-inset-bottom);
+}
+
+.bottom-nav-btn {
+    flex: 1;
+    background: transparent;
+    border: none;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    cursor: pointer;
+    color: rgba(255, 255, 255, 0.4);
+    transition: color 0.2s;
+    padding: 0;
+}
+
+.bottom-nav-btn.active {
+    color: var(--primary);
+}
+
+.bottom-nav-btn:hover {
+    color: rgba(255, 255, 255, 0.7);
+}
+
+.bottom-nav-icon {
+    font-size: 22px;
+    line-height: 1;
+}
+
+.bottom-nav-label {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+}
+
+/* Add padding so content isn't hidden behind bottom nav */
+.container {
+    padding-bottom: 80px;
+}
+
+/* Profile tab cards */
+.profile-card {
+    background: var(--card-bg);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 16px;
+    padding: 16px 20px;
+}
+
+.profile-card h4 {
+    font-size: 13px;
+    color: rgba(255, 255, 255, 0.5);
+    margin-bottom: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.profile-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    font-size: 14px;
+}
+
+.profile-row:last-child {
+    border-bottom: none;
+}
+
+.profile-value {
+    font-weight: 600;
+    color: var(--primary);
+    font-family: monospace;
+}

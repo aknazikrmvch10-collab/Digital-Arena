@@ -960,6 +960,156 @@ function closeQRModal() {
     }
 }
 
+// ======================================================
+// Mini App 2.0: Tab Navigation
+// ======================================================
+
+let currentTab = 'clubs';
+
+function switchTab(tab) {
+    // Hide all tab panels
+    document.querySelectorAll('[id^="tab-"]').forEach(el => el.classList.add('hidden'));
+    // Deactivate all nav buttons
+    document.querySelectorAll('.bottom-nav-btn').forEach(btn => btn.classList.remove('active'));
+
+    // Show selected tab
+    const panel = document.getElementById(`tab-${tab}`);
+    if (panel) panel.classList.remove('hidden');
+
+    const btn = document.getElementById(`nav-${tab}`);
+    if (btn) btn.classList.add('active');
+
+    currentTab = tab;
+
+    // Load content for the tab
+    if (tab === 'bookings') renderBookingsTab();
+    if (tab === 'profile') renderProfileTab();
+}
+
+async function renderBookingsTab() {
+    const container = document.getElementById('my-bookings-list');
+    container.innerHTML = '<p style="text-align:center;color:rgba(255,255,255,0.4)">Загрузка...</p>';
+
+    const userId = tg.initDataUnsafe?.user?.id;
+    if (!userId) {
+        container.innerHTML = '<p style="text-align:center;color:rgba(255,255,255,0.4)">Войдите через Telegram</p>';
+        return;
+    }
+    try {
+        const r = await fetch(`${API_BASE_URL}/web/bookings?tg_id=${userId}`, {
+            headers: {
+                'ngrok-skip-browser-warning': 'true',
+                'X-Telegram-Init-Data': tg.initData
+            }
+        });
+        const bookings = await r.json();
+        if (!bookings.length) {
+            container.innerHTML = '<p style="text-align:center;color:rgba(255,255,255,0.4);padding:32px 0">📋 Нет броней</p>';
+            return;
+        }
+        container.innerHTML = bookings.map(b => `
+            <div class="booking-card" style="margin-bottom:12px">
+                <div class="booking-header">
+                    <strong>${b.computer_name}</strong>
+                    <span class="booking-status-badge status-${(b.status || '').toLowerCase()}">${{
+                'CONFIRMED': '✅ Подтверждено', 'ACTIVE': '🟢 Активно',
+                'COMPLETED': '✔ Завершено', 'CANCELLED': '❌ Отменено',
+                'NO_SHOW': '👻 Не явился'
+            }[b.status] || b.status}</span>
+                </div>
+                <div class="booking-info">${b.club_name} · ${b.display_time}</div>
+                <div class="booking-action-buttons">
+                    <button class="qr-btn-small" onclick="showQRCode('${b.id}')">🎟 Показать код</button>
+                </div>
+            </div>
+        `).join('');
+    } catch (e) {
+        container.innerHTML = `<p style="text-align:center;color:var(--error)">Ошибка: ${e.message}</p>`;
+    }
+}
+
+async function renderProfileTab() {
+    const container = document.getElementById('profile-content');
+    const user = tg.initDataUnsafe?.user;
+
+    if (!user) {
+        container.innerHTML = '<p style="text-align:center;color:rgba(255,255,255,0.4)">Войдите через Telegram</p>';
+        return;
+    }
+
+    // Fetch referral code from API
+    let referralCode = '—';
+    try {
+        const r = await fetch(`${API_BASE_URL}/web/profile?tg_id=${user.id}`, {
+            headers: { 'X-Telegram-Init-Data': tg.initData }
+        });
+        if (r.ok) {
+            const data = await r.json();
+            referralCode = data.referral_code || '—';
+        }
+    } catch (e) { }
+
+    const botUsername = 'ArenaSlot_bot'; // Update if bot username changes
+    const inviteLink = `https://t.me/${botUsername}?start=ref_${referralCode}`;
+
+    container.innerHTML = `
+        <div class="profile-card">
+            <h4>Аккаунт</h4>
+            <div class="profile-row">
+                <span>👤 Имя</span>
+                <span class="profile-value">${user.first_name || ''} ${user.last_name || ''}</span>
+            </div>
+            ${user.username ? `<div class="profile-row">
+                <span>@ Username</span>
+                <span class="profile-value">@${user.username}</span>
+            </div>` : ''}
+            <div class="profile-row">
+                <span>🆔 Telegram ID</span>
+                <span class="profile-value">${user.id}</span>
+            </div>
+        </div>
+
+        <div class="profile-card">
+            <h4>🎁 Реферальная программа</h4>
+            <div class="profile-row">
+                <span>Ваш код</span>
+                <span class="profile-value" onclick="navigator.clipboard.writeText('${referralCode}')" style="cursor:pointer" title="Нажмите для копирования">${referralCode} 📋</span>
+            </div>
+            <div style="margin-top:10px">
+                <a href="https://t.me/share/url?url=${encodeURIComponent(inviteLink)}&text=${encodeURIComponent('Бронируй ПК через Digital Arena!')}"
+                   style="display:block;text-align:center;background:linear-gradient(135deg,#00f2ff,#8b5cf6);color:#000;border-radius:10px;padding:10px;font-weight:700;text-decoration:none;font-size:14px">
+                   📤 Поделиться ссылкой
+                </a>
+            </div>
+        </div>
+
+        <div class="profile-card">
+            <h4>🌍 Язык</h4>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:4px">
+                <button onclick="setLanguageFromApp('ru')" style="flex:1;padding:10px;border-radius:10px;border:1px solid rgba(255,255,255,0.1);background:rgba(255,255,255,0.05);color:#fff;cursor:pointer;font-size:13px">🇷🇺 Русский</button>
+                <button onclick="setLanguageFromApp('uz')" style="flex:1;padding:10px;border-radius:10px;border:1px solid rgba(255,255,255,0.1);background:rgba(255,255,255,0.05);color:#fff;cursor:pointer;font-size:13px">🇺🇿 O'zbek</button>
+                <button onclick="setLanguageFromApp('kz')" style="flex:1;padding:10px;border-radius:10px;border:1px solid rgba(255,255,255,0.1);background:rgba(255,255,255,0.05);color:#fff;cursor:pointer;font-size:13px">🇰🇿 Қазақ</button>
+            </div>
+        </div>
+    `;
+}
+
+async function setLanguageFromApp(lang) {
+    const userId = tg.initDataUnsafe?.user?.id;
+    if (!userId) return;
+    try {
+        await fetch(`${API_BASE_URL}/web/language`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-Telegram-Init-Data': tg.initData },
+            body: JSON.stringify({ tg_id: userId, language: lang })
+        });
+        const labels = { ru: 'Русский 🇷🇺', uz: "O'zbek 🇺🇿", kz: 'Қазақ 🇰🇿' };
+        showToast(`✅ Язык изменён: ${labels[lang]}`, 'success');
+    } catch (e) {
+        showToast('Ошибка при смене языка', 'error');
+    }
+}
+
 // Initialize
 loadClubData();
 enableGlobalScroll();

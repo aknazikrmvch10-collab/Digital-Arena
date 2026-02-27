@@ -14,16 +14,19 @@ class User(Base):
     created_at = Column(DateTime(timezone=True), default=lambda: now_tashkent())
     
     # Notification settings
-    notifications_enabled = Column(Boolean, default=True)  # Enable/disable notifications
-    notification_minutes = Column(Integer, default=30)  # 15, 30, or 60 minutes before
+    notifications_enabled = Column(Boolean, default=True)
+    notification_minutes = Column(Integer, default=30)
     
     # Age verification
-    age_confirmed = Column(Boolean, default=False)  # User confirmed they are 18+
+    age_confirmed = Column(Boolean, default=False)
+    
+    # Language preference: 'ru', 'uz', 'kz'
+    language = Column(String, default='ru', nullable=False)
     
     # Referral system
-    referral_code = Column(String, unique=True, nullable=True, index=True)  # This user's referral code
-    referred_by = Column(Integer, ForeignKey("users.id"), nullable=True)  # Who referred this user
-    referral_bonus_used = Column(Boolean, default=False)  # Has their first booking bonus been applied
+    referral_code = Column(String, unique=True, nullable=True, index=True)
+    referred_by = Column(Integer, ForeignKey("users.id"), nullable=True)
+    referral_bonus_used = Column(Boolean, default=False)
 
     bookings = relationship("Booking", back_populates="user")
     reviews = relationship("Review", foreign_keys="Review.user_id", back_populates="user")
@@ -211,3 +214,29 @@ class Review(Base):
 
     user = relationship("User", foreign_keys=[user_id], back_populates="reviews")
     club = relationship("Club", back_populates="reviews")
+
+
+class PromoCode(Base):
+    """Promotional codes for discounts on bookings."""
+    __tablename__ = "promo_codes"
+
+    id = Column(Integer, primary_key=True, index=True)
+    code = Column(String, unique=True, nullable=False, index=True)  # e.g. 'ARENA20'
+    discount_percent = Column(Integer, default=10)  # 10 = 10% off
+    max_uses = Column(Integer, nullable=True)  # None = unlimited
+    uses_count = Column(Integer, default=0)  # How many times used
+    is_active = Column(Boolean, default=True)
+    expires_at = Column(DateTime(timezone=True), nullable=True)  # None = no expiry
+    club_id = Column(Integer, ForeignKey("clubs.id"), nullable=True)  # None = platform-wide
+    created_at = Column(DateTime(timezone=True), default=lambda: now_tashkent())
+    created_by_tg_id = Column(BigInteger, nullable=True)  # Telegram ID of the creator
+
+    def is_valid(self) -> bool:
+        from utils.timezone import now_tashkent
+        if not self.is_active:
+            return False
+        if self.max_uses and self.uses_count >= self.max_uses:
+            return False
+        if self.expires_at and now_tashkent() > self.expires_at:
+            return False
+        return True

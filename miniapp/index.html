@@ -13,16 +13,13 @@
 </head>
 
 <body>
-    <div class="container">
+    <div class="container" id="tab-clubs">
         <!-- Club Info Header -->
         <div class="header">
             <h2 id="club-name">Загрузка...</h2>
             <p id="club-address">
                 <span class="change-club-link" onclick="goBackToClubs()">(Сменить)</span>
             </p>
-            <button class="my-bookings-btn" onclick="openMyBookings()">
-                📅 Мои Брони
-            </button>
         </div>
 
         <!-- Zones Selector -->
@@ -35,6 +32,42 @@
             <!-- Computers injected by JS -->
         </div>
     </div>
+
+    <!-- My Bookings Tab Panel -->
+    <div class="container hidden" id="tab-bookings">
+        <div class="header">
+            <h2>📅 Мои Брони</h2>
+        </div>
+        <div id="my-bookings-list" style="padding: 16px;">
+            <p style="text-align:center;color:var(--text-muted)">Загрузка...</p>
+        </div>
+    </div>
+
+    <!-- Profile Tab Panel -->
+    <div class="container hidden" id="tab-profile">
+        <div class="header">
+            <h2>👤 Профиль</h2>
+        </div>
+        <div id="profile-content" style="padding:16px; display:flex; flex-direction:column; gap:16px;">
+            <!-- Injected by JS -->
+        </div>
+    </div>
+
+    <!-- Bottom Navigation Bar -->
+    <nav class="bottom-nav">
+        <button class="bottom-nav-btn active" id="nav-clubs" onclick="switchTab('clubs')">
+            <span class="bottom-nav-icon">🎮</span>
+            <span class="bottom-nav-label">Клубы</span>
+        </button>
+        <button class="bottom-nav-btn" id="nav-bookings" onclick="switchTab('bookings')">
+            <span class="bottom-nav-icon">📅</span>
+            <span class="bottom-nav-label">Брони</span>
+        </button>
+        <button class="bottom-nav-btn" id="nav-profile" onclick="switchTab('profile')">
+            <span class="bottom-nav-icon">👤</span>
+            <span class="bottom-nav-label">Профиль</span>
+        </button>
+    </nav>
 
     <!-- Booking Modal -->
     <div id="booking-modal" class="modal" style="display: none;">
@@ -98,17 +131,22 @@
 
     <!-- QR Code Modal -->
     <div id="qr-modal" class="modal qr-modal" style="display: none; align-items: center;">
-        <div class="modal-content" style="border-radius: 24px; text-align: center; max-width: 320px; padding: 30px 20px;">
+        <div class="modal-content"
+            style="border-radius: 24px; text-align: center; max-width: 320px; padding: 30px 20px;">
             <div class="modal-header" style="justify-content: center; position: relative;">
                 <h3>Ваш код</h3>
-                <button class="close-btn" onclick="closeQRModal()" style="position: absolute; right: -10px; top: -10px;">✕</button>
+                <button class="close-btn" onclick="closeQRModal()"
+                    style="position: absolute; right: -10px; top: -10px;">✕</button>
             </div>
-            
-            <div id="qr-code-container" style="background: white; padding: 15px; border-radius: 12px; display: inline-block; margin: 20px 0;">
+
+            <div id="qr-code-container"
+                style="background: white; padding: 15px; border-radius: 12px; display: inline-block; margin: 20px 0;">
                 <!-- QR code injected by JS -->
             </div>
-            
-            <p id="qr-code-text" style="font-size: 24px; font-weight: 700; letter-spacing: 2px; color: var(--primary); font-family: monospace;">XXXXXX</p>
+
+            <p id="qr-code-text"
+                style="font-size: 24px; font-weight: 700; letter-spacing: 2px; color: var(--primary); font-family: monospace;">
+                XXXXXX</p>
             <p style="font-size: 13px; color: rgba(255,255,255,0.6); margin-top: 10px;">Покажите код администратору</p>
         </div>
     </div>
