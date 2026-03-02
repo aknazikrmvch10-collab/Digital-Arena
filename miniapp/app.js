@@ -124,7 +124,8 @@ function showToast(message, type = 'normal') {
 }
 
 // API Configuration — dynamic URL based on host
-const API_BASE_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+const IS_LOCAL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+const API_BASE_URL = IS_LOCAL
     ? `http://${window.location.host}/api`
     : "https://digital-arena-njok.onrender.com/api";
 
