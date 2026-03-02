@@ -122,11 +122,17 @@ async def send_reminder_notifications(bot):
                                 # Calculate exact time until booking
                                 time_until = int((booking.start_time - now).total_seconds() / 60)
                                 
+                                # Convert booking times to Tashkent (UTC+5) for display
+                                from datetime import timezone as _tz, timedelta as _td
+                                tashkent_tz = _tz(_td(hours=5))
+                                start_display = booking.start_time.astimezone(tashkent_tz).strftime('%H:%M') if booking.start_time.tzinfo else booking.start_time.strftime('%H:%M')
+                                end_display = booking.end_time.astimezone(tashkent_tz).strftime('%H:%M') if booking.end_time.tzinfo else booking.end_time.strftime('%H:%M')
+                                
                                 message = (
                                     f"⏰ <b>Напоминание!</b>\n\n"
                                     f"Ваша бронь через {time_until} минут:\n"
                                     f"💻 {booking.computer_name} в {club.name}\n"
-                                    f"🕐 Время: {booking.start_time.strftime('%H:%M')}-{booking.end_time.strftime('%H:%M')}\n"
+                                    f"🕐 Время: {start_display}-{end_display}\n"
                                     f"📍 Адрес: {club.address}\n\n"
                                     f"Не опоздайте! 🏃"
                                 )

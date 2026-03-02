@@ -351,6 +351,23 @@ async def create_booking(booking: BookingRequest, request: Request, user_data: d
                 
                 if result.success:
                     logger.info("Booking success", booking_id=result.booking_id)
+                    # Notify club admin about new booking (fire-and-forget, non-blocking)
+                    try:
+                        from main import bot as _bot
+                        from background_tasks import notify_club_admin_new_booking
+                        from models import Booking as _Booking
+                        import asyncio as _asyncio
+                        # Load the created booking to pass to notification (use booking_id from result)
+                        new_booking_result = await session.execute(
+                            select(_Booking).where(_Booking.id == int(result.booking_id))
+                        )
+                        new_booking = new_booking_result.scalars().first()
+                        if new_booking:
+                            _asyncio.create_task(
+                                notify_club_admin_new_booking(_bot, new_booking, user, club)
+                            )
+                    except Exception as _e:
+                        logger.warning("Could not notify club admin", error=str(_e))
                     # Transaction will auto-commit at end of 'async with session.begin()'
                     return {
                         "success": True, 
