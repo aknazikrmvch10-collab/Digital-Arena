@@ -91,11 +91,10 @@ body {
     text-align: center;
     margin-bottom: 30px;
     padding: 24px;
-    background: var(--card-bg);
+    background: rgba(20, 20, 35, 0.95);
     border-radius: 24px;
     border: 1px solid rgba(255, 255, 255, 0.1);
-    backdrop-filter: blur(20px);
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
     position: relative;
     overflow: hidden;
 }
@@ -162,8 +161,7 @@ body {
     font-size: 14px;
     font-weight: 600;
     white-space: nowrap;
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    backdrop-filter: blur(10px);
+    transition: background 0.15s, border-color 0.15s, color 0.15s;
 }
 
 .zone-btn.active {
@@ -194,8 +192,7 @@ body {
     justify-content: center;
     position: relative;
     cursor: pointer;
-    transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
-    backdrop-filter: blur(10px);
+    transition: transform 0.15s ease, border-color 0.15s, background 0.15s;
     overflow: hidden;
 }
 
@@ -204,9 +201,7 @@ body {
     content: '🖥️';
     font-size: 24px;
     margin-bottom: 8px;
-    filter: grayscale(1);
     opacity: 0.5;
-    transition: all 0.3s;
 }
 
 .computer-card .computer-name {
@@ -225,17 +220,13 @@ body {
 
 /* Available State */
 .computer-card.available:hover {
-    transform: translateY(-5px) scale(1.02);
+    transform: translateY(-2px);
     border-color: var(--primary);
-    box-shadow: var(--neon-glow);
-    background: rgba(0, 242, 255, 0.05);
+    background: rgba(0, 242, 255, 0.08);
 }
 
 .computer-card.available:hover::before {
-    filter: grayscale(0);
     opacity: 1;
-    transform: scale(1.1);
-    text-shadow: 0 0 15px var(--primary);
 }
 
 /* Selected State */
@@ -252,7 +243,6 @@ body {
     inset: 0;
     border-radius: 18px;
     border: 2px solid var(--primary);
-    animation: pulse 2s infinite;
 }
 
 @keyframes pulse {
@@ -287,15 +277,13 @@ body {
     bottom: 0;
     left: 0;
     width: 100%;
-    background: rgba(10, 10, 20, 0.95);
-    backdrop-filter: blur(20px);
+    background: rgba(10, 10, 20, 0.98);
     border-top: 1px solid rgba(255, 255, 255, 0.1);
     padding: 0;
-    /* Remove padding to allow image to flush */
     border-radius: 30px 30px 0 0;
-    box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.5);
+    box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.5);
     transform: translateY(100%);
-    transition: transform 0.4s cubic-bezier(0.19, 1, 0.22, 1);
+    transition: transform 0.25s ease-out;
     z-index: 100;
     display: flex;
     flex-direction: column;
@@ -574,7 +562,25 @@ body {
 .time-slot.disabled {
     opacity: 0.3;
     cursor: not-allowed;
-    background: rgba(255, 0, 0, 0.1);
+    background: rgba(255, 255, 255, 0.02);
+}
+
+.time-slot.occupied {
+    opacity: 0.6;
+    cursor: not-allowed;
+    background: rgba(255, 0, 85, 0.1);
+    border-color: rgba(255, 0, 85, 0.3);
+    color: rgba(255, 255, 255, 0.4);
+    text-decoration: line-through;
+    position: relative;
+}
+
+.time-slot.occupied::after {
+    content: '🔒';
+    position: absolute;
+    top: 2px;
+    right: 4px;
+    font-size: 10px;
 }
 
 .duration-selector {
@@ -929,4 +935,162 @@ body {
     padding: 20px;
     color: rgba(255, 255, 255, 0.5);
     font-size: 14px;
+}
+
+/* --- QR Code Elements --- */
+.qr-btn-small {
+    background: rgba(0, 242, 255, 0.15);
+    border: 1px solid var(--primary);
+    color: var(--primary);
+    padding: 6px 12px;
+    border-radius: 8px;
+    font-size: 11px;
+    cursor: pointer;
+    font-weight: 600;
+    transition: all 0.2s;
+}
+
+.qr-btn-small:hover {
+    background: var(--primary);
+    color: #000;
+    box-shadow: 0 0 10px rgba(0, 242, 255, 0.4);
+}
+
+.booking-action-buttons {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+/* --- Club Card Meta (seats & rating) --- */
+.club-meta {
+    display: flex;
+    gap: 8px;
+    margin-top: 6px;
+    flex-wrap: wrap;
+    align-items: center;
+}
+
+.seats-badge,
+.rating-badge {
+    font-size: 11px;
+    font-weight: 600;
+    padding: 3px 8px;
+    border-radius: 8px;
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+}
+
+.seats-free {
+    background: rgba(0, 255, 157, 0.15);
+    color: var(--success);
+    border: 1px solid rgba(0, 255, 157, 0.3);
+}
+
+.seats-full {
+    background: rgba(255, 0, 85, 0.1);
+    color: var(--error);
+    border: 1px solid rgba(255, 0, 85, 0.3);
+}
+
+.rating-badge {
+    background: rgba(255, 200, 0, 0.1);
+    color: #ffc800;
+    border: 1px solid rgba(255, 200, 0, 0.3);
+}
+
+/* --- Mini App 2.0: Bottom Navigation --- */
+.hidden {
+    display: none !important;
+}
+
+.bottom-nav {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 64px;
+    background: rgba(18, 18, 28, 0.97);
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    display: flex;
+    align-items: stretch;
+    z-index: 1000;
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    padding-bottom: env(safe-area-inset-bottom);
+}
+
+.bottom-nav-btn {
+    flex: 1;
+    background: transparent;
+    border: none;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    cursor: pointer;
+    color: rgba(255, 255, 255, 0.4);
+    transition: color 0.2s;
+    padding: 0;
+}
+
+.bottom-nav-btn.active {
+    color: var(--primary);
+}
+
+.bottom-nav-btn:hover {
+    color: rgba(255, 255, 255, 0.7);
+}
+
+.bottom-nav-icon {
+    font-size: 22px;
+    line-height: 1;
+}
+
+.bottom-nav-label {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+}
+
+/* Add padding so content isn't hidden behind bottom nav */
+.container {
+    padding-bottom: 80px;
+}
+
+/* Profile tab cards */
+.profile-card {
+    background: var(--card-bg);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 16px;
+    padding: 16px 20px;
+}
+
+.profile-card h4 {
+    font-size: 13px;
+    color: rgba(255, 255, 255, 0.5);
+    margin-bottom: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.profile-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    font-size: 14px;
+}
+
+.profile-row:last-child {
+    border-bottom: none;
+}
+
+.profile-value {
+    font-weight: 600;
+    color: var(--primary);
+    font-family: monospace;
 }

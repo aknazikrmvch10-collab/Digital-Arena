@@ -3,24 +3,29 @@ const tg = window.Telegram.WebApp;
 tg.ready();
 tg.expand();
 
+// Debug Auth - REMOVED
+// setTimeout(() => { ... }, 1000);
+
+if (!tg.initData) {
+    showToast('⚠️ Внимание: Нет данных авторизации Telegram!\nПопробуйте перезапустить бота.', 'error');
+    document.body.innerHTML = '<div style="color:white;text-align:center;margin-top:50px;">🚫 Доступ запрещен. Откройте приложение через Telegram бота.</div>';
+    throw new Error('No Telegram Auth Data');
+}
+
 // ==================== DARK THEME ====================
 // Авто-определение темы из Telegram
-function applyTheme() {
-    const theme = tg.colorScheme || 'dark'; // 'dark' или 'light'
-    document.documentElement.setAttribute('data-theme', theme);
+// FORCE DARK THEME for consistent branding
+const theme = 'dark';
+document.documentElement.setAttribute('data-theme', theme);
 
-    // Применяем цвета Telegram к CSS переменным
-    if (tg.themeParams) {
-        const root = document.documentElement;
-        root.style.setProperty('--tg-bg-color', tg.themeParams.bg_color || '#1a1a2e');
-        root.style.setProperty('--tg-text-color', tg.themeParams.text_color || '#ffffff');
-        root.style.setProperty('--tg-hint-color', tg.themeParams.hint_color || '#7a7a7a');
-        root.style.setProperty('--tg-link-color', tg.themeParams.link_color || '#00f2ff');
-        root.style.setProperty('--tg-button-color', tg.themeParams.button_color || '#00f2ff');
-        root.style.setProperty('--tg-button-text', tg.themeParams.button_text_color || '#000000');
-    }
-}
-applyTheme();
+// Override Telegram colors with our Cyberpunk Palette
+const root = document.documentElement;
+root.style.setProperty('--tg-bg-color', '#1a1a2e');
+root.style.setProperty('--tg-text-color', '#ffffff');
+root.style.setProperty('--tg-hint-color', '#7a7a7a');
+root.style.setProperty('--tg-link-color', '#00f2ff');
+root.style.setProperty('--tg-button-color', '#00f2ff');
+root.style.setProperty('--tg-button-text', '#000000');
 
 // ==================== UTILITIES ====================
 
@@ -101,7 +106,15 @@ function showToast(message, type = 'normal') {
     `;
 
     container.appendChild(toast);
-    tg.HapticFeedback.notificationOccurred(type === 'error' ? 'error' : 'success');
+
+    // Safe haptic feedback
+    try {
+        if (tg && tg.HapticFeedback) {
+            tg.HapticFeedback.notificationOccurred(type === 'error' ? 'error' : 'success');
+        }
+    } catch (e) {
+        // Haptic not supported or disabled
+    }
 
     // Auto remove
     setTimeout(() => {
@@ -110,8 +123,11 @@ function showToast(message, type = 'normal') {
     }, 3000);
 }
 
-// API Configuration
-const API_BASE_URL = "https://unshored-lynnette-medicamental.ngrok-free.dev";
+// API Configuration — dynamic URL based on host
+const IS_LOCAL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+const API_BASE_URL = IS_LOCAL
+    ? `http://${window.location.host}/api`
+    : "https://digital-arena-njok.onrender.com/api";
 
 // Load club data
 async function loadClubData() {
@@ -124,10 +140,21 @@ async function loadClubData() {
         }
 
         // Load club info
-        const clubResponse = await fetch(`${API_BASE_URL}/api/clubs`, {
-            headers: { 'ngrok-skip-browser-warning': 'true' }
+        const clubResponse = await fetch(`${API_BASE_URL}/clubs?page=1&limit=100`, {
+            headers: {
+                'ngrok-skip-browser-warning': 'true',
+                'X-Telegram-Init-Data': tg.initData
+            }
         });
-        const clubs = await clubResponse.json();
+        const clubsData = await clubResponse.json();
+
+        // Bulletproof array extraction (handles both new paginated {clubs: []} and old raw list [...])
+        let clubs = [];
+        if (Array.isArray(clubsData)) {
+            clubs = clubsData;
+        } else if (clubsData && Array.isArray(clubsData.clubs)) {
+            clubs = clubsData.clubs;
+        }
 
         // Check if clubId is present
         if (!clubId) {
@@ -136,7 +163,8 @@ async function loadClubData() {
             return;
         }
 
-        const club = clubs.find(c => c.id == clubId);
+        // Use filter instead of find to prevent "is not a function" on older Android WebViews
+        const club = clubs.filter(c => c.id == clubId)[0];
 
         if (club) {
             currentVenueType = club.venue_type || 'computer_club'; // Set global type
@@ -161,10 +189,14 @@ async function loadClubData() {
         }
 
         // Load items (computers or tables)
-        const computersResponse = await fetch(`${API_BASE_URL}/api/clubs/${clubId}/computers`, {
-            headers: { 'ngrok-skip-browser-warning': 'true' }
+        const computersResponse = await fetch(`${API_BASE_URL}/clubs/${clubId}/computers?page=1&limit=100`, {
+            headers: {
+                'ngrok-skip-browser-warning': 'true',
+                'X-Telegram-Init-Data': tg.initData
+            }
         });
-        computers = await computersResponse.json(); // "computers" is generic list now
+        const computerData = await computersResponse.json();
+        computers = computerData.items || []; // Extract items from paginated response
 
         if (computers.length === 0) {
             showEmptyState();
@@ -202,10 +234,29 @@ function renderClubSelection(clubs) {
 
         const typeIcon = club.venue_type === 'restaurant' ? '🍽️' : '🎮';
 
+        // Safe fallbacks for missing data
+        const safeCity = club.city || 'Город не указан';
+        const safeAddress = club.address || 'Адрес не указан';
+        const safeTotalSeats = club.total_seats || 0;
+        const safeFreeSeats = club.free_seats || 0;
+
+        // Live seats badge
+        const seatsBadge = safeTotalSeats > 0
+            ? `<span class="seats-badge ${safeFreeSeats > 0 ? 'seats-free' : 'seats-full'}">
+                 ${safeFreeSeats > 0 ? '🟢' : '🔴'} ${safeFreeSeats}/${safeTotalSeats} мест
+               </span>`
+            : '';
+
+        // Rating badge
+        const ratingBadge = club.avg_rating
+            ? `<span class="rating-badge">⭐ ${club.avg_rating} (${club.review_count || 0})</span>`
+            : '';
+
         card.innerHTML = `
             <div>
                 <div class="club-title">${typeIcon} ${club.name}</div>
-                <div class="club-location">${club.city}, ${club.address}</div>
+                <div class="club-location">${safeCity}, ${safeAddress}</div>
+                <div class="club-meta">${seatsBadge} ${ratingBadge}</div>
             </div>
             <div class="club-action">➜</div>
         `;
@@ -462,28 +513,76 @@ function selectDate(offset, btn) {
     tg.HapticFeedback.selectionChanged();
 }
 
-function renderTimeGrid() {
+// Helper: Get current time in Tashkent (UTC+5)
+function nowTashkent() {
+    const now = new Date();
+    // Convert to UTC, then add 5 hours for Tashkent
+    const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
+    return new Date(utc + (5 * 3600000));
+}
+
+// Helper: Format date as YYYY-MM-DD in Tashkent timezone
+function tashkentDateStr(dayOffset = 0) {
+    const d = nowTashkent();
+    d.setDate(d.getDate() + dayOffset);
+    return d.toISOString().split('T')[0];
+}
+
+async function renderTimeGrid() {
     const grid = document.getElementById('time-grid');
     grid.innerHTML = '';
 
-    // Implement check for occupied hours via API in future
-    // For now, simple grid from 10:00 to 23:00
-
-    const now = new Date();
+    const tashkentNow = nowTashkent();
     const isToday = bookingState.dayOffset === 0;
-    const currentHour = now.getHours();
+    const currentHour = tashkentNow.getHours();
 
-    for (let h = 10; h < 24; h++) {
+    // Calculate target date for API call using Tashkent time
+    const dateStr = tashkentDateStr(bookingState.dayOffset);
+
+    // Show loading skeleton while fetching (all 24 hours)
+    for (let h = 0; h < 24; h++) {
+        const slot = document.createElement('button');
+        slot.className = 'time-slot skeleton';
+        slot.textContent = `${String(h).padStart(2, '0')}:00`;
+        grid.appendChild(slot);
+    }
+
+    // Fetch occupied hours from API
+    let occupiedHours = [];
+    if (selectedComputer) {
+        try {
+            const resp = await fetch(
+                `${API_BASE_URL}/availability?club_id=${selectedComputer.club_id || clubId}&computer_id=${selectedComputer.id}&date=${dateStr}`
+            );
+            if (resp.ok) {
+                const data = await resp.json();
+                occupiedHours = data.occupied_hours || [];
+            }
+        } catch (e) {
+            console.warn('Failed to fetch availability:', e);
+        }
+    }
+
+    // Re-render with real data (all 24 hours, matching bot)
+    grid.innerHTML = '';
+    for (let h = 0; h < 24; h++) {
         const slot = document.createElement('button');
         slot.className = 'time-slot';
-        slot.textContent = `${h}:00`;
+        slot.textContent = `${String(h).padStart(2, '0')}:00`;
 
         let disabled = false;
 
-        // Smart Time Selection: Disable past hours
+        // Disable past hours (using Tashkent time)
         if (isToday && h <= currentHour) {
             disabled = true;
             slot.classList.add('disabled');
+            slot.title = 'Время прошло';
+        }
+        // Disable occupied hours
+        else if (occupiedHours.includes(h)) {
+            disabled = true;
+            slot.classList.add('occupied');
+            slot.title = 'Занято';
         }
 
         if (!disabled) {
@@ -527,13 +626,17 @@ function adjustDuration(delta) {
 
 function updatePrice() {
     const hours = bookingState.durationMinutes / 60;
-    let price = selectedComputer.price_per_hour * hours;
+    let price;
 
     if (currentVenueType === 'restaurant') {
-        // Assuming basic or free for now, as logic varies
-        // Use booking price from model which we mapped to price_per_hour
+        // Restaurants: flat booking fee (deposit), NOT hourly
+        price = selectedComputer.price_per_hour || 0; // booking_price mapped to price_per_hour
+    } else {
+        // Computer clubs: hourly rate
+        price = selectedComputer.price_per_hour * hours;
     }
 
+    const priceLabel = currentVenueType === 'restaurant' ? 'Депозит' : 'Итого';
     document.getElementById('total-price').textContent = price > 0 ? `${Math.round(price).toLocaleString()} сум` : "Бесплатно";
 
     const btn = document.getElementById('confirm-booking-btn');
@@ -559,9 +662,12 @@ async function confirmBooking() {
     btn.disabled = true;
 
     try {
-        const date = new Date();
-        date.setDate(date.getDate() + bookingState.dayOffset);
-        date.setHours(bookingState.selectedHour, 0, 0, 0);
+        // Build start_time in Tashkent timezone (UTC+5)
+        const tashkent = nowTashkent();
+        tashkent.setDate(tashkent.getDate() + bookingState.dayOffset);
+        tashkent.setHours(bookingState.selectedHour, 0, 0, 0);
+        // Convert Tashkent time back to UTC for API (subtract 5 hours)
+        const startTimeUTC = new Date(tashkent.getTime() - (5 * 3600000));
 
         let userId = 0;
         if (tg.initDataUnsafe && tg.initDataUnsafe.user) {
@@ -571,29 +677,28 @@ async function confirmBooking() {
             userId = 123456789;
         }
 
-        const localizedIso = date.getFullYear() + '-' +
-            String(date.getMonth() + 1).padStart(2, '0') + '-' +
-            String(date.getDate()).padStart(2, '0') + 'T' +
-            String(date.getHours()).padStart(2, '0') + ':00:00+05:00';
-
         const payload = {
             user_id: userId,
             club_id: parseInt(clubId),
             computer_id: String(selectedComputer.id),
-            start_time: localizedIso,
+            start_time: startTimeUTC.toISOString(),
             duration_minutes: bookingState.durationMinutes
         };
 
-        const response = await fetch(`${API_BASE_URL}/api/bookings`, {
+        const response = await fetch(`${API_BASE_URL}/bookings`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'ngrok-skip-browser-warning': 'true'
+                'ngrok-skip-browser-warning': 'true',
+                'X-Telegram-Init-Data': tg.initData
             },
             body: JSON.stringify(payload)
         });
 
         if (!response.ok) {
+            if (response.status === 401) {
+                throw new Error("⛔ Ошибка авторизации.\nПожалуйста, откройте приложение внутри Telegram!");
+            }
             const errText = await response.text();
             throw new Error(errText);
         }
@@ -686,15 +791,22 @@ async function openMyBookings() {
     list.innerHTML = `<div class="empty-state-small">Загрузка...</div>`;
 
     try {
-        let userId = 123456789;
-        if (tg.initDataUnsafe && tg.initDataUnsafe.user) {
-            userId = tg.initDataUnsafe.user.id;
+        const response = await fetch(`${API_BASE_URL}/user/bookings?page=1&limit=50`, {
+            headers: {
+                'ngrok-skip-browser-warning': 'true',
+                'X-Telegram-Init-Data': tg.initData
+            }
+        });
+
+        if (!response.ok) {
+            if (response.status === 401) {
+                throw new Error('⛔ Ошибка авторизации. Откройте приложение в Telegram');
+            }
+            throw new Error(`HTTP ${response.status}`);
         }
 
-        const response = await fetch(`${API_BASE_URL}/api/user/bookings?user_id=${userId}`, {
-            headers: { 'ngrok-skip-browser-warning': 'true' }
-        });
-        const bookings = await response.json();
+        const bookingsData = await response.json();
+        const bookings = bookingsData.bookings || []; // Extract bookings from paginated response
 
         renderUserBookings(bookings);
     } catch (e) {
@@ -718,6 +830,14 @@ function renderUserBookings(bookings) {
     bookings.forEach(b => {
         const div = document.createElement('div');
         div.className = 'booking-card';
+
+        // Check if QR code button should be shown
+        let qrButtonHTML = '';
+        if (b.confirmation_code && (b.status === 'CONFIRMED' || b.status === 'ACTIVE')) {
+            // Need escaping for string arguments in inline onclick
+            qrButtonHTML = `<button class="qr-btn-small" onclick="showQRCode('${b.confirmation_code}')">🎟 Показать код</button>`;
+        }
+
         div.innerHTML = `
             <div class="booking-info">
                 <h4>${b.club_name}</h4>
@@ -726,7 +846,10 @@ function renderUserBookings(bookings) {
             </div>
             <div class="booking-actions">
                 <span class="status-badge ${b.status.toLowerCase()}">${b.status}</span>
-                ${b.status === 'CONFIRMED' ? `<button class="cancel-btn-small" onclick="cancelBooking(${b.id})">Отмена</button>` : ''}
+                <div class="booking-action-buttons">
+                    ${qrButtonHTML}
+                    ${b.status === 'CONFIRMED' ? `<button class="cancel-btn-small" onclick="cancelBooking(${b.id})">Отмена</button>` : ''}
+                </div>
             </div>
         `;
         list.appendChild(div);
@@ -734,66 +857,272 @@ function renderUserBookings(bookings) {
 }
 
 async function cancelBooking(bookingId) {
-    // 1️⃣ Подтверждение (защита от случайного клика)
+    // 1️⃣ Confirmation (protect from accidental clicks)
     if (!confirm('❗ Вы уверены, что хотите отменить эту бронь?\n\nОтменить действие будет невозможно.')) {
         return;
     }
 
-    // 2️⃣ Показываем индикатор загрузки
-    const btnElement = event.target; // Кнопка, по которой кликнули
+    // 2️⃣ Get button element
+    const btnElement = event?.target; // Button that was clicked
+    if (!btnElement) {
+        showToast('❌ Ошибка: Не удалось найти кнопку', 'error');
+        return;
+    }
+
     const originalText = btnElement.textContent;
     btnElement.textContent = '⏳ Отмена...';
     btnElement.disabled = true;
 
     try {
-        let userId = 123456789;
-        if (tg.initDataUnsafe && tg.initDataUnsafe.user) {
-            userId = tg.initDataUnsafe.user.id;
-        }
-
-        // 3️⃣ Отправляем DELETE запрос (новый стандарт!)
-        const response = await fetch(`${API_BASE_URL}/api/bookings/${bookingId}?user_id=${userId}`, {
-            method: 'DELETE',  // ✅ Теперь используем правильный HTTP метод
-            headers: { 'ngrok-skip-browser-warning': 'true' }
+        // 3️⃣ Send DELETE request with proper auth
+        const response = await fetch(`${API_BASE_URL}/bookings/${bookingId}`, {
+            method: 'DELETE',
+            headers: {
+                'ngrok-skip-browser-warning': 'true',
+                'X-Telegram-Init-Data': tg.initData
+            }
         });
 
         if (response.ok) {
             const result = await response.json();
             showToast(result.message || 'Бронь успешно отменена!', 'success');
-            tg.HapticFeedback.notificationOccurred('success');
 
-            // Обновляем список
-            openMyBookings();
+            // Safe haptic
+            try {
+                if (tg && tg.HapticFeedback) {
+                    tg.HapticFeedback.notificationOccurred('success');
+                }
+            } catch (e) { }
+
+            // Refresh list
+            setTimeout(() => openMyBookings(), 500);
         } else {
-            // 4️⃣ Лучшая обработка ошибок
+            // 4️⃣ Better error handling
             let errorMsg = 'Не удалось отменить бронь';
 
             try {
                 const errorData = await response.json();
                 errorMsg = errorData.detail || errorMsg;
             } catch {
-                // Если сервер вернул не JSON, показываем стандартное сообщение
+                // Server didn't return JSON
                 if (response.status === 404) {
                     errorMsg = 'Бронь не найдена или вам не принадлежит';
                 } else if (response.status === 400) {
                     errorMsg = 'Невозможно отменить эту бронь';
+                } else if (response.status === 401) {
+                    errorMsg = '⛔ Вы не авторизованы';
                 } else if (response.status >= 500) {
                     errorMsg = 'Ошибка сервера. Попробуйте позже';
                 }
             }
 
             showToast(errorMsg, 'error');
-            tg.HapticFeedback.notificationOccurred('error');
+
+            // Safe haptic
+            try {
+                if (tg && tg.HapticFeedback) {
+                    tg.HapticFeedback.notificationOccurred('error');
+                }
+            } catch (e) { }
         }
     } catch (e) {
-        // 5️⃣ Обработка сетевых ошибок (нет интернета и т.д.)
+        // 5️⃣ Network errors
         console.error('Network error:', e);
         showToast('❌ Ошибка сети. Проверьте подключение к интернету.', 'error');
-        tg.HapticFeedback.notificationOccurred('error');
+
+        // Safe haptic
+        try {
+            if (tg && tg.HapticFeedback) {
+                tg.HapticFeedback.notificationOccurred('error');
+            }
+        } catch (e) { }
     } finally {
-        // 6️⃣ Восстанавливаем кнопку в любом случае
+        // 6️⃣ Restore button in any case
         btnElement.textContent = originalText;
         btnElement.disabled = false;
+    }
+}
+
+// --- QR Code Logic ---
+let currentQRCode = null;
+
+function showQRCode(code) {
+    const modal = document.getElementById('qr-modal');
+    const container = document.getElementById('qr-code-container');
+    const textElement = document.getElementById('qr-code-text');
+
+    // Clear previous QR
+    container.innerHTML = '';
+    textElement.textContent = code;
+
+    // Generate new QR using QRCode.js
+    currentQRCode = new QRCode(container, {
+        text: code,
+        width: 180,
+        height: 180,
+        colorDark: "#000000",
+        colorLight: "#ffffff",
+        correctLevel: QRCode.CorrectLevel.L
+    });
+
+    modal.style.display = 'flex';
+}
+
+function closeQRModal() {
+    document.getElementById('qr-modal').style.display = 'none';
+    if (currentQRCode) {
+        currentQRCode.clear();
+    }
+}
+
+// ======================================================
+// Mini App 2.0: Tab Navigation
+// ======================================================
+
+let currentTab = 'clubs';
+
+function switchTab(tab) {
+    // Hide all tab panels
+    document.querySelectorAll('[id^="tab-"]').forEach(el => el.classList.add('hidden'));
+    // Deactivate all nav buttons
+    document.querySelectorAll('.bottom-nav-btn').forEach(btn => btn.classList.remove('active'));
+
+    // Show selected tab
+    const panel = document.getElementById(`tab-${tab}`);
+    if (panel) panel.classList.remove('hidden');
+
+    const btn = document.getElementById(`nav-${tab}`);
+    if (btn) btn.classList.add('active');
+
+    currentTab = tab;
+
+    // Load content for the tab
+    if (tab === 'bookings') renderBookingsTab();
+    if (tab === 'profile') renderProfileTab();
+}
+
+async function renderBookingsTab() {
+    const container = document.getElementById('my-bookings-tab-list');
+    if (!container) return;
+    container.innerHTML = '<p style="text-align:center;color:rgba(255,255,255,0.4)">Загрузка...</p>';
+
+    const userId = tg.initDataUnsafe?.user?.id;
+    if (!userId) {
+        container.innerHTML = '<p style="text-align:center;color:rgba(255,255,255,0.4)">Войдите через Telegram</p>';
+        return;
+    }
+    try {
+        const r = await fetch(`${API_BASE_URL}/web/bookings?tg_id=${userId}`, {
+            headers: {
+                'ngrok-skip-browser-warning': 'true',
+                'X-Telegram-Init-Data': tg.initData
+            }
+        });
+        const bookings = await r.json();
+        if (!bookings.length) {
+            container.innerHTML = '<p style="text-align:center;color:rgba(255,255,255,0.4);padding:32px 0">📋 Нет броней</p>';
+            return;
+        }
+        container.innerHTML = bookings.map(b => `
+            <div class="booking-card" style="margin-bottom:12px">
+                <div class="booking-header">
+                    <strong>${b.computer_name}</strong>
+                    <span class="booking-status-badge status-${(b.status || '').toLowerCase()}">${{
+                'CONFIRMED': '✅ Подтверждено', 'ACTIVE': '🟢 Активно',
+                'COMPLETED': '✔ Завершено', 'CANCELLED': '❌ Отменено',
+                'NO_SHOW': '👻 Не явился'
+            }[b.status] || b.status}</span>
+                </div>
+                <div class="booking-info">${b.club_name} · ${b.display_time}</div>
+                <div class="booking-action-buttons">
+                    <button class="qr-btn-small" onclick="showQRCode('${b.id}')">🎟 Показать код</button>
+                </div>
+            </div>
+        `).join('');
+    } catch (e) {
+        container.innerHTML = `<p style="text-align:center;color:var(--error)">Ошибка: ${e.message}</p>`;
+    }
+}
+
+async function renderProfileTab() {
+    const container = document.getElementById('profile-content');
+    const user = tg.initDataUnsafe?.user;
+
+    if (!user) {
+        container.innerHTML = '<p style="text-align:center;color:rgba(255,255,255,0.4)">Войдите через Telegram</p>';
+        return;
+    }
+
+    // Fetch referral code from API
+    let referralCode = '—';
+    try {
+        const r = await fetch(`${API_BASE_URL}/web/profile?tg_id=${user.id}`, {
+            headers: { 'X-Telegram-Init-Data': tg.initData }
+        });
+        if (r.ok) {
+            const data = await r.json();
+            referralCode = data.referral_code || '—';
+        }
+    } catch (e) { }
+
+    const botUsername = 'ArenaSlot_bot'; // Update if bot username changes
+    const inviteLink = `https://t.me/${botUsername}?start=ref_${referralCode}`;
+
+    container.innerHTML = `
+        <div class="profile-card">
+            <h4>Аккаунт</h4>
+            <div class="profile-row">
+                <span>👤 Имя</span>
+                <span class="profile-value">${user.first_name || ''} ${user.last_name || ''}</span>
+            </div>
+            ${user.username ? `<div class="profile-row">
+                <span>@ Username</span>
+                <span class="profile-value">@${user.username}</span>
+            </div>` : ''}
+            <div class="profile-row">
+                <span>🆔 Telegram ID</span>
+                <span class="profile-value">${user.id}</span>
+            </div>
+        </div>
+
+        <div class="profile-card">
+            <h4>🎁 Реферальная программа</h4>
+            <div class="profile-row">
+                <span>Ваш код</span>
+                <span class="profile-value" onclick="navigator.clipboard.writeText('${referralCode}')" style="cursor:pointer" title="Нажмите для копирования">${referralCode} 📋</span>
+            </div>
+            <div style="margin-top:10px">
+                <a href="https://t.me/share/url?url=${encodeURIComponent(inviteLink)}&text=${encodeURIComponent('Бронируй ПК через Digital Arena!')}"
+                   style="display:block;text-align:center;background:linear-gradient(135deg,#00f2ff,#8b5cf6);color:#000;border-radius:10px;padding:10px;font-weight:700;text-decoration:none;font-size:14px">
+                   📤 Поделиться ссылкой
+                </a>
+            </div>
+        </div>
+
+        <div class="profile-card">
+            <h4>🌍 Язык</h4>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:4px">
+                <button onclick="setLanguageFromApp('ru')" style="flex:1;padding:10px;border-radius:10px;border:1px solid rgba(255,255,255,0.1);background:rgba(255,255,255,0.05);color:#fff;cursor:pointer;font-size:13px">🇷🇺 Русский</button>
+                <button onclick="setLanguageFromApp('uz')" style="flex:1;padding:10px;border-radius:10px;border:1px solid rgba(255,255,255,0.1);background:rgba(255,255,255,0.05);color:#fff;cursor:pointer;font-size:13px">🇺🇿 O'zbek</button>
+                <button onclick="setLanguageFromApp('kz')" style="flex:1;padding:10px;border-radius:10px;border:1px solid rgba(255,255,255,0.1);background:rgba(255,255,255,0.05);color:#fff;cursor:pointer;font-size:13px">🇰🇿 Қазақ</button>
+            </div>
+        </div>
+    `;
+}
+
+async function setLanguageFromApp(lang) {
+    const userId = tg.initDataUnsafe?.user?.id;
+    if (!userId) return;
+    try {
+        await fetch(`${API_BASE_URL}/web/language`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-Telegram-Init-Data': tg.initData },
+            body: JSON.stringify({ tg_id: userId, language: lang })
+        });
+        const labels = { ru: 'Русский 🇷🇺', uz: "O'zbek 🇺🇿", kz: 'Қазақ 🇰🇿' };
+        showToast(`✅ Язык изменён: ${labels[lang]}`, 'success');
+    } catch (e) {
+        showToast('Ошибка при смене языка', 'error');
     }
 }
 

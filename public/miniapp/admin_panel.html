@@ -1,0 +1,618 @@
+<!DOCTYPE html>
+<html lang="ru">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Digital Arena — Admin Panel</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #0a0a0f;
+            --surface: #12121a;
+            --card: #1a1a26;
+            --border: rgba(255, 255, 255, 0.08);
+            --primary: #00f2ff;
+            --accent: #8b5cf6;
+            --success: #00ff9d;
+            --warning: #fbbf24;
+            --error: #ff4757;
+            --text: #e2e8f0;
+            --muted: rgba(255, 255, 255, 0.45);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+        }
+
+        /* SIDEBAR */
+        .sidebar {
+            position: fixed;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 240px;
+            background: var(--surface);
+            border-right: 1px solid var(--border);
+            padding: 24px 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            z-index: 100;
+        }
+
+        .logo {
+            font-size: 18px;
+            font-weight: 800;
+            background: linear-gradient(135deg, var(--primary), var(--accent));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 24px;
+            padding-left: 8px;
+        }
+
+        .nav-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 12px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            color: var(--muted);
+            border: none;
+            background: transparent;
+            width: 100%;
+            text-align: left;
+            transition: all 0.2s;
+        }
+
+        .nav-item:hover,
+        .nav-item.active {
+            background: rgba(0, 242, 255, 0.08);
+            color: var(--primary);
+        }
+
+        .nav-icon {
+            font-size: 18px;
+            width: 22px;
+            text-align: center;
+        }
+
+        /* MAIN CONTENT */
+        .main {
+            margin-left: 240px;
+            padding: 32px;
+            min-height: 100vh;
+        }
+
+        /* TOP BAR */
+        .topbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 32px;
+        }
+
+        .page-title {
+            font-size: 24px;
+            font-weight: 700;
+        }
+
+        .page-sub {
+            font-size: 13px;
+            color: var(--muted);
+            margin-top: 4px;
+        }
+
+        .login-btn {
+            background: linear-gradient(135deg, var(--primary), var(--accent));
+            color: #000;
+            border: none;
+            border-radius: 10px;
+            padding: 10px 20px;
+            font-weight: 700;
+            cursor: pointer;
+            font-size: 14px;
+            transition: opacity 0.2s;
+        }
+
+        .login-btn:hover {
+            opacity: 0.85;
+        }
+
+        /* STAT CARDS */
+        .stat-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 16px;
+            margin-bottom: 32px;
+        }
+
+        @media (max-width: 1100px) {
+            .stat-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        .stat-card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 20px;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            color: var(--muted);
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .stat-value {
+            font-size: 32px;
+            font-weight: 800;
+        }
+
+        .stat-sub {
+            font-size: 12px;
+            color: var(--muted);
+            margin-top: 4px;
+        }
+
+        .stat-icon {
+            font-size: 24px;
+            margin-bottom: 12px;
+        }
+
+        /* TABLE */
+        .section-title {
+            font-size: 16px;
+            font-weight: 700;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .badge {
+            background: rgba(0, 242, 255, 0.15);
+            color: var(--primary);
+            font-size: 11px;
+            padding: 2px 8px;
+            border-radius: 20px;
+            font-weight: 600;
+        }
+
+        .card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 20px;
+            margin-bottom: 24px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+
+        th {
+            text-align: left;
+            padding: 8px 12px;
+            font-size: 11px;
+            color: var(--muted);
+            text-transform: uppercase;
+            border-bottom: 1px solid var(--border);
+        }
+
+        td {
+            padding: 12px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+        }
+
+        tr:last-child td {
+            border-bottom: none;
+        }
+
+        tr:hover td {
+            background: rgba(255, 255, 255, 0.02);
+        }
+
+        .status-pill {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+
+        .status-confirmed {
+            background: rgba(0, 242, 255, 0.15);
+            color: var(--primary);
+        }
+
+        .status-active {
+            background: rgba(0, 255, 157, 0.15);
+            color: var(--success);
+        }
+
+        .status-completed {
+            background: rgba(255, 255, 255, 0.1);
+            color: var(--muted);
+        }
+
+        .status-cancelled {
+            background: rgba(255, 71, 87, 0.15);
+            color: var(--error);
+        }
+
+        /* CHARTS PLACEHOLDER */
+        .chart-placeholder {
+            height: 160px;
+            background: repeating-linear-gradient(90deg, rgba(0, 242, 255, 0.05) 0px, rgba(0, 242, 255, 0.05) 1px,
+                    transparent 1px, transparent 40px);
+            border-radius: 10px;
+            display: flex;
+            align-items: flex-end;
+            padding: 12px;
+            gap: 6px;
+            position: relative;
+        }
+
+        .bar {
+            background: linear-gradient(to top, var(--primary), var(--accent));
+            border-radius: 4px 4px 0 0;
+            flex: 1;
+            min-height: 8px;
+            opacity: 0.8;
+            transition: opacity 0.2s;
+        }
+
+        .bar:hover {
+            opacity: 1;
+        }
+
+        /* LOGIN OVERLAY */
+        .overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(10, 10, 15, 0.95);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 200;
+        }
+
+        .login-box {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 40px;
+            max-width: 400px;
+            width: 100%;
+            text-align: center;
+        }
+
+        .login-logo {
+            font-size: 36px;
+            margin-bottom: 16px;
+        }
+
+        .login-title {
+            font-size: 22px;
+            font-weight: 800;
+            margin-bottom: 8px;
+        }
+
+        .login-sub {
+            font-size: 14px;
+            color: var(--muted);
+            margin-bottom: 32px;
+        }
+
+        .tg-login-btn {
+            background: #229ED9;
+            color: #fff;
+            border: none;
+            border-radius: 12px;
+            padding: 14px 28px;
+            font-size: 16px;
+            font-weight: 700;
+            cursor: pointer;
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            transition: opacity 0.2s;
+        }
+
+        .tg-login-btn:hover {
+            opacity: 0.85;
+        }
+
+        .tg-icon {
+            font-size: 22px;
+        }
+
+        .loading {
+            color: var(--muted);
+            font-size: 13px;
+            margin-top: 12px;
+            display: none;
+        }
+
+        .spinner {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid var(--muted);
+            border-top-color: var(--primary);
+            border-radius: 50%;
+            animation: spin 0.6s linear infinite;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        /* RESPONSIVE */
+        @media (max-width: 768px) {
+            .sidebar {
+                display: none;
+            }
+
+            .main {
+                margin-left: 0;
+                padding: 16px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- Login Overlay -->
+    <div class="overlay" id="login-overlay">
+        <div class="login-box">
+            <div class="login-logo">🎮</div>
+            <div class="login-title">Digital Arena Admin</div>
+            <div class="login-sub">Войдите через Telegram чтобы продолжить</div>
+            <button class="tg-login-btn" onclick="loginViaTelegram()">
+                <span class="tg-icon">✈️</span> Войти через Telegram
+            </button>
+            <div class="loading" id="loading-indicator">
+                <span class="spinner"></span> Проверяем доступ...
+            </div>
+        </div>
+    </div>
+
+    <!-- Sidebar -->
+    <div class="sidebar">
+        <div class="logo">🎮 Digital Arena</div>
+        <button class="nav-item active" onclick="showSection('dashboard')">
+            <span class="nav-icon">📊</span> Дашборд
+        </button>
+        <button class="nav-item" onclick="showSection('bookings')">
+            <span class="nav-icon">📅</span> Брони
+        </button>
+        <button class="nav-item" onclick="showSection('clubs')">
+            <span class="nav-icon">🏢</span> Клубы
+        </button>
+        <button class="nav-item" onclick="showSection('users')">
+            <span class="nav-icon">👥</span> Пользователи
+        </button>
+        <button class="nav-item" onclick="showSection('promo')">
+            <span class="nav-icon">🎫</span> Промокоды
+        </button>
+    </div>
+
+    <!-- Main -->
+    <div class="main">
+        <div class="topbar">
+            <div>
+                <div class="page-title">📊 Дашборд</div>
+                <div class="page-sub" id="last-updated">Загрузка...</div>
+            </div>
+            <button class="login-btn" onclick="loadStats()">🔄 Обновить</button>
+        </div>
+
+        <!-- Stat Cards -->
+        <div class="stat-grid">
+            <div class="stat-card">
+                <div class="stat-icon">👥</div>
+                <div class="stat-label">Пользователей</div>
+                <div class="stat-value" id="stat-users">—</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">🟢</div>
+                <div class="stat-label">Активных сейчас</div>
+                <div class="stat-value" id="stat-active" style="color: var(--success)">—</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">📅</div>
+                <div class="stat-label">Брони сегодня</div>
+                <div class="stat-value" id="stat-today" style="color: var(--primary)">—</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">⭐</div>
+                <div class="stat-label">Средний рейтинг</div>
+                <div class="stat-value" id="stat-rating" style="color: var(--warning)">—</div>
+            </div>
+        </div>
+
+        <!-- Bookings Chart -->
+        <div class="card">
+            <div class="section-title">📈 Активность за 7 дней</div>
+            <div class="chart-placeholder" id="bar-chart">
+                <!-- Filled by JS -->
+            </div>
+        </div>
+
+        <!-- Recent Bookings -->
+        <div class="card">
+            <div class="section-title">
+                📅 Последние брони
+                <span class="badge" id="bookings-count">—</span>
+            </div>
+            <table>
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Клиент</th>
+                        <th>Клуб</th>
+                        <th>Место</th>
+                        <th>Время</th>
+                        <th>Статус</th>
+                    </tr>
+                </thead>
+                <tbody id="bookings-table">
+                    <tr>
+                        <td colspan="6" style="text-align:center; color: var(--muted); padding: 24px;">Загрузка...</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        const API = window.location.origin + '/api';
+        let adminTgId = localStorage.getItem('admin_tg_id');
+        let adminInitData = localStorage.getItem('admin_init_data');
+
+        // --- Login via Telegram (WebApp) ---
+        function loginViaTelegram() {
+            const tg = window.Telegram?.WebApp;
+            if (tg && tg.initData) {
+                adminInitData = tg.initData;
+                adminTgId = tg.initDataUnsafe?.user?.id;
+                localStorage.setItem('admin_init_data', adminInitData);
+                localStorage.setItem('admin_tg_id', adminTgId);
+                document.getElementById('loading-indicator').style.display = 'block';
+                loadStats();
+            } else {
+                // Fallback for non-Telegram browser: ask for TG ID as demo
+                const id = prompt("Введите ваш Telegram ID (для демо):");
+                if (id && !isNaN(id)) {
+                    adminTgId = id;
+                    localStorage.setItem('admin_tg_id', id);
+                    document.getElementById('login-overlay').style.display = 'none';
+                    loadStats();
+                }
+            }
+        }
+
+        // Auto-dismiss overlay if already logged in
+        if (adminTgId) {
+            document.getElementById('login-overlay').style.display = 'none';
+            loadStats();
+        }
+
+        function showSection(name) {
+            document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+            event.target.closest('.nav-item').classList.add('active');
+            document.querySelector('.page-title').textContent = {
+                dashboard: '📊 Дашборд', bookings: '📅 Брони',
+                clubs: '🏢 Клубы', users: '👥 Пользователи', promo: '🎫 Промокоды'
+            }[name] || 'Дашборд';
+            if (name === 'dashboard') loadStats();
+            if (name === 'bookings') loadBookings();
+        }
+
+        async function loadStats() {
+            document.getElementById('login-overlay').style.display = 'none';
+            try {
+                const r = await fetch(`${API}/admin/stats`, {
+                    headers: { 'X-Admin-TG-ID': adminTgId || '' }
+                });
+                if (r.status === 401 || r.status === 403) {
+                    document.getElementById('login-overlay').style.display = 'flex';
+                    return;
+                }
+                const d = await r.json();
+                document.getElementById('stat-users').textContent = d.users_total ?? '—';
+                document.getElementById('stat-active').textContent = d.active_now ?? '—';
+                document.getElementById('stat-today').textContent = d.bookings_today ?? '—';
+                document.getElementById('stat-rating').textContent = d.avg_rating ? `${d.avg_rating}★` : '—';
+                document.getElementById('last-updated').textContent = 'Обновлено: ' + new Date().toLocaleTimeString('ru');
+                renderBookingsChart(d.daily_bookings || []);
+                renderBookingsTable(d.recent_bookings || []);
+                document.getElementById('bookings-count').textContent = d.bookings_total ?? '—';
+            } catch (e) {
+                document.getElementById('last-updated').textContent = 'Ошибка загрузки';
+            }
+        }
+
+        async function loadBookings() {
+            try {
+                const r = await fetch(`${API}/admin/bookings`, {
+                    headers: { 'X-Admin-TG-ID': adminTgId || '' }
+                });
+                const d = await r.json();
+                renderBookingsTable(d.bookings || []);
+            } catch (e) { }
+        }
+
+        function renderBookingsChart(daily) {
+            const chart = document.getElementById('bar-chart');
+            if (!daily.length) {
+                chart.innerHTML = '<span style="color:var(--muted);margin:auto">Нет данных</span>';
+                return;
+            }
+            const max = Math.max(...daily.map(d => d.count), 1);
+            chart.innerHTML = daily.map(d => {
+                const h = Math.max(8, (d.count / max) * 140);
+                return `<div class="bar" style="height:${h}px" title="${d.date}: ${d.count}"></div>`;
+            }).join('');
+        }
+
+        function renderBookingsTable(bookings) {
+            const tbody = document.getElementById('bookings-table');
+            if (!bookings.length) {
+                tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:24px">Нет броней</td></tr>';
+                return;
+            }
+            tbody.innerHTML = bookings.slice(0, 20).map(b => {
+                const statusClass = {
+                    'CONFIRMED': 'confirmed', 'ACTIVE': 'active',
+                    'COMPLETED': 'completed', 'CANCELLED': 'cancelled'
+                }[b.status] || 'confirmed';
+                const statusLabels = {
+                    'CONFIRMED': 'Подтверждено', 'ACTIVE': 'Активно',
+                    'COMPLETED': 'Завершено', 'CANCELLED': 'Отменено',
+                    'NO_SHOW': 'Не явился'
+                };
+                const start = b.start_time ? new Date(b.start_time).toLocaleString('ru', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—';
+                return `<tr>
+                <td style="color:var(--muted)">#${b.id}</td>
+                <td>${b.user_name || '—'}</td>
+                <td>${b.club_name || '—'}</td>
+                <td>${b.computer_name || '—'}</td>
+                <td>${start}</td>
+                <td><span class="status-pill status-${statusClass}">${statusLabels[b.status] || b.status}</span></td>
+            </tr>`;
+            }).join('');
+        }
+
+        // Auto-refresh every 30s
+        setInterval(() => { if (adminTgId) loadStats(); }, 30000);
+    </script>
+</body>
+
+</html>
