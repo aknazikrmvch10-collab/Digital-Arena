@@ -45,6 +45,9 @@ migrate_to_supabase.py
 test_supabase_conn.py
 test_supabase_variants.py
 
+# Firebase CLI cache (auto-generated, not needed in repo)
+.firebase/
+
 # OS
 .DS_Store
 Thumbs.db
