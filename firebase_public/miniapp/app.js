@@ -6,10 +6,80 @@ tg.expand();
 // Debug Auth - REMOVED
 // setTimeout(() => { ... }, 1000);
 
-if (!tg.initData) {
-    showToast('⚠️ Внимание: Нет данных авторизации Telegram!\nПопробуйте перезапустить бота.', 'error');
-    document.body.innerHTML = '<div style="color:white;text-align:center;margin-top:50px;">🚫 Доступ запрещен. Откройте приложение через Telegram бота.</div>';
-    throw new Error('No Telegram Auth Data');
+// ==================== AUTH LAYER ====================
+let _standaloneAuthData = null;
+
+// Helper to get auth headers for API calls
+function getAuthHeaders() {
+    if (tg.initData) {
+        return { 'X-Telegram-Init-Data': tg.initData };
+    } else if (_standaloneAuthData) {
+        return { 'X-Telegram-Web-Login': JSON.stringify(_standaloneAuthData) };
+    }
+    return {};
+}
+
+// Callback for Telegram Login Widget
+function onTelegramAuth(user) {
+    if (user && user.hash) {
+        localStorage.setItem('tg_web_login', JSON.stringify(user));
+        _standaloneAuthData = user;
+        document.getElementById('auth-screen').style.display = 'none';
+
+        // Show splash screen manually
+        haptic('success');
+        document.getElementById('loading-overlay').style.display = 'flex';
+
+        // Initialize app
+        initApp();
+    }
+}
+
+// Check auth state and initialize widget if needed
+async function checkAuthAndInit() {
+    // 1. Context: Telegram Mini App
+    if (tg.initData) {
+        return true;
+    }
+
+    // 2. Context: Standalone PWA
+    const cachedAuth = localStorage.getItem('tg_web_login');
+    if (cachedAuth) {
+        try {
+            _standaloneAuthData = JSON.parse(cachedAuth);
+            // Optional: validate token expiration (e.g. 30 days)
+            return true;
+        } catch (e) {
+            localStorage.removeItem('tg_web_login');
+        }
+    }
+
+    // 3. Not Authenticated -> Show Widget
+    document.getElementById('auth-screen').style.display = 'flex';
+    document.getElementById('loading-overlay').style.display = 'none';
+
+    try {
+        const res = await fetch(`${API_BASE_URL}/api/config`);
+        const config = await res.json();
+        const botUsername = config.bot_username || "ArenaSlot_bot";
+
+        // Render script tag for Telegram Widget
+        const script = document.createElement('script');
+        script.src = "https://telegram.org/js/telegram-widget.js?22";
+        script.setAttribute("data-telegram-login", botUsername);
+        script.setAttribute("data-size", "large");
+        script.setAttribute("data-radius", "10");
+        script.setAttribute("data-onauth", "onTelegramAuth(user)");
+        script.setAttribute("data-request-access", "write");
+
+        document.getElementById('telegram-login-widget-container').appendChild(script);
+
+    } catch (e) {
+        console.error("Failed to load config for widget", e);
+        document.getElementById('telegram-login-widget-container').innerHTML =
+            "<button onclick='location.reload()' style='background:var(--primary);color:#000;border:none;padding:10px 20px;border-radius:10px;font-weight:bold;'>Обновить</button>";
+    }
+    return false;
 }
 
 // ==================== DARK THEME ====================
@@ -674,12 +744,11 @@ async function confirmBooking() {
         // Step 3: Shift back to real UTC
         const startTimeUTC = new Date(tashkentNow.getTime() - TASHKENT_OFFSET_MS);
 
-        let userId = 0;
-        if (tg.initDataUnsafe && tg.initDataUnsafe.user) {
-            userId = tg.initDataUnsafe.user.id;
-        } else {
-            // For testing only
-            userId = 123456789;
+        const user = getAuthUser();
+        let userId = user ? user.id : 0;
+
+        if (!userId) {
+            throw new Error("⛔ Ошибка авторизации. Попробуйте перезайти.");
         }
 
         const payload = {
@@ -695,7 +764,7 @@ async function confirmBooking() {
             headers: {
                 'Content-Type': 'application/json',
                 'ngrok-skip-browser-warning': 'true',
-                'X-Telegram-Init-Data': tg.initData
+                ...getAuthHeaders()
             },
             body: JSON.stringify(payload)
         });
@@ -799,7 +868,7 @@ async function openMyBookings() {
         const response = await fetch(`${API_BASE_URL}/user/bookings?page=1&limit=50`, {
             headers: {
                 'ngrok-skip-browser-warning': 'true',
-                'X-Telegram-Init-Data': tg.initData
+                ...getAuthHeaders()
             }
         });
 
@@ -884,7 +953,7 @@ async function cancelBooking(bookingId) {
             method: 'DELETE',
             headers: {
                 'ngrok-skip-browser-warning': 'true',
-                'X-Telegram-Init-Data': tg.initData
+                ...getAuthHeaders()
             }
         });
 
@@ -1011,7 +1080,8 @@ async function renderBookingsTab() {
     if (!container) return;
     container.innerHTML = '<p style="text-align:center;color:rgba(255,255,255,0.4)">Загрузка...</p>';
 
-    const userId = tg.initDataUnsafe?.user?.id;
+    const user = getAuthUser();
+    const userId = user?.id;
     if (!userId) {
         container.innerHTML = '<p style="text-align:center;color:rgba(255,255,255,0.4)">Войдите через Telegram</p>';
         return;
@@ -1051,7 +1121,7 @@ async function renderBookingsTab() {
 
 async function renderProfileTab() {
     const container = document.getElementById('profile-content');
-    const user = tg.initDataUnsafe?.user;
+    const user = getAuthUser();
 
     if (!user) {
         container.innerHTML = '<p style="text-align:center;color:rgba(255,255,255,0.4)">Войдите через Telegram</p>';
@@ -1062,7 +1132,7 @@ async function renderProfileTab() {
     let referralCode = '—';
     try {
         const r = await fetch(`${API_BASE_URL}/web/profile?tg_id=${user.id}`, {
-            headers: { 'X-Telegram-Init-Data': tg.initData }
+            headers: { ...getAuthHeaders() }
         });
         if (r.ok) {
             const data = await r.json();
@@ -1116,12 +1186,13 @@ async function renderProfileTab() {
 }
 
 async function setLanguageFromApp(lang) {
-    const userId = tg.initDataUnsafe?.user?.id;
+    const user = getAuthUser();
+    const userId = user?.id;
     if (!userId) return;
     try {
         await fetch(`${API_BASE_URL}/web/language`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'X-Telegram-Init-Data': tg.initData },
+            headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
             body: JSON.stringify({ tg_id: userId, language: lang })
         });
         const labels = { ru: 'Русский 🇷🇺', uz: "O'zbek 🇺🇿", kz: 'Қазақ 🇰🇿' };
@@ -1131,6 +1202,25 @@ async function setLanguageFromApp(lang) {
     }
 }
 
-// Initialize
-loadClubData();
-enableGlobalScroll();
+// ==================== AUTH USER HELPER ====================
+function getAuthUser() {
+    if (tg.initDataUnsafe && tg.initDataUnsafe.user) {
+        return tg.initDataUnsafe.user;
+    } else if (_standaloneAuthData) {
+        return _standaloneAuthData;
+    }
+    return null;
+}
+
+// ==================== INITIALIZATION ====================
+function initApp() {
+    loadClubData();
+    enableGlobalScroll();
+}
+
+// Start auth flow
+checkAuthAndInit().then(isAuthenticated => {
+    if (isAuthenticated) {
+        initApp();
+    }
+});

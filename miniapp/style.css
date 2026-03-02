@@ -1093,4 +1093,11 @@ body {
     font-weight: 600;
     color: var(--primary);
     font-family: monospace;
-}
+}  
+/* PWA Auth Screen */  
+#auth-screen { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: var(--bg-dark); background-image: radial-gradient(circle at 50%% 50%%, rgba(124, 58, 237, 0.15) 0%%, transparent 70%%); z-index: 9999; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(10px); }  
+.auth-card { background: var(--card-bg); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 24px; padding: 40px 24px; text-align: center; width: 90%%; max-width: 400px; box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3); }  
+.auth-logo { width: 80px; height: 80px; border-radius: 20px; margin-bottom: 20px; box-shadow: var(--neon-purple); display: inline-block; }  
+.auth-card h2 { font-size: 24px; margin-bottom: 10px; font-weight: 700; background: linear-gradient(90deg, var(--primary), var(--secondary)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }  
+.auth-card p { color: var(--tg-hint-color); font-size: 15px; margin-bottom: 30px; line-height: 1.5; }  
+#telegram-login-widget-container { margin: 0 auto; min-height: 40px; display: flex; justify-content: center; overflow: hidden; }  
