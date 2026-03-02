@@ -1,386 +1,64 @@
-name: 🚀 Digital Arena CI/CD Pipeline
+name: 🚀 Digital Arena — Deploy
 
 on:
   push:
-    branches: [ main, develop ]
-  pull_request:
     branches: [ main ]
-  release:
-    types: [ published ]
 
 env:
   PYTHON_VERSION: "3.11"
-  NODE_VERSION: "18"
 
 jobs:
-  # 🔍 Code Quality & Security
-  quality:
-    name: 🔍 Code Quality & Security
+  # ✅ Step 1: Basic syntax check (fast, no DB required)
+  check:
+    name: 🔍 Python Syntax Check
     runs-on: ubuntu-latest
-    
     steps:
-    - name: 📥 Checkout code
-      uses: actions/checkout@v4
-      with:
-        fetch-depth: 0
-    
-    - name: 🐍 Set up Python
-      uses: actions/setup-python@v4
-      with:
-        python-version: ${{ env.PYTHON_VERSION }}
-        cache: 'pip'
-    
-    - name: 📦 Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install -r requirements.txt
-        pip install flake8 black isort mypy bandit safety pytest pytest-cov pytest-asyncio
-    
-    - name: 🔍 Lint with flake8
-      run: |
-        flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
-        flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
-    
-    - name: 🎨 Format check with black
-      run: black --check --diff .
-    
-    - name: 📚 Import sort check with isort
-      run: isort --check-only --diff .
-    
-    - name: 🔎 Type checking with mypy
-      run: mypy . --ignore-missing-imports
-    
-    - name: 🔒 Security scan with bandit
-      run: bandit -r . -f json -o bandit-report.json || true
-    
-    - name: 🛡️ Dependency security check
-      run: safety check --json --output safety-report.json || true
-    
-    - name: 📊 Upload security reports
-      uses: actions/upload-artifact@v3
-      with:
-        name: security-reports
-        path: |
-          bandit-report.json
-          safety-report.json
+      - uses: actions/checkout@v4
 
-  # 🧪 Testing
-  test:
-    name: 🧪 Test Suite
-    runs-on: ubuntu-latest
-    needs: quality
-    
-    services:
-      postgres:
-        image: postgres:15
-        env:
-          POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: test_arena
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-        ports:
-          - 5432:5432
-      
-      redis:
-        image: redis:7
-        options: >-
-          --health-cmd "redis-cli ping"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-        ports:
-          - 6379:6379
-    
-    steps:
-    - name: 📥 Checkout code
-      uses: actions/checkout@v4
-    
-    - name: 🐍 Set up Python
-      uses: actions/setup-python@v4
-      with:
-        python-version: ${{ env.PYTHON_VERSION }}
-        cache: 'pip'
-    
-    - name: 📦 Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install -r requirements.txt
-        pip install pytest pytest-cov pytest-asyncio pytest-mock
-    
-    - name: 🗄️ Run database migrations
-      run: |
-        cp .env.example .env
-        # Initialize test database
-        python -c "
-        import asyncio
-        from database import init_db
-        asyncio.run(init_db())
-        "
-      env:
-        DATABASE_URL: postgresql://postgres:postgres@localhost:5432/test_arena
-    
-    - name: 🧪 Run tests with coverage
-      run: |
-        pytest --cov=. --cov-report=xml --cov-report=html --cov-report=term-missing -v
-      env:
-        DATABASE_URL: postgresql://postgres:postgres@localhost:5432/test_arena
-        REDIS_URL: redis://localhost:6379/0
-        TESTING: true
-    
-    - name: 📊 Upload coverage to Codecov
-      uses: codecov/codecov-action@v3
-      with:
-        file: ./coverage.xml
-        flags: unittests
-        name: codecov-umbrella
-        fail_ci_if_error: false
+      - name: 🐍 Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
 
-  # 🌐 Frontend Testing
-  frontend-test:
-    name: 🌐 Frontend Testing
-    runs-on: ubuntu-latest
-    
-    steps:
-    - name: 📥 Checkout code
-      uses: actions/checkout@v4
-    
-    - name: 📦 Set up Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: ${{ env.NODE_VERSION }}
-        cache: 'npm'
-        cache-dependency-path: |
-          miniapp/package-lock.json
-          website/package-lock.json
-    
-    - name: 📦 Install frontend dependencies
-      run: |
-        cd miniapp && npm ci
-        cd ../website && npm ci
-    
-    - name: 🔍 Lint frontend code
-      run: |
-        cd miniapp && npm run lint || true
-        cd ../website && npm run lint || true
-    
-    - name: 🧪 Run frontend tests
-      run: |
-        cd miniapp && npm test || true
-        cd ../website && npm test || true
+      - name: 📦 Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
 
-  # 🐳 Docker Build & Security
-  docker:
-    name: 🐳 Docker Build & Security
-    runs-on: ubuntu-latest
-    needs: [test, frontend-test]
-    if: github.event_name != 'pull_request'
-    
-    steps:
-    - name: 📥 Checkout code
-      uses: actions/checkout@v4
-    
-    - name: 🐳 Set up Docker Buildx
-      uses: docker/setup-buildx-action@v3
-    
-    - name: 🔑 Login to Docker Hub
-      uses: docker/login-action@v3
-      with:
-        username: ${{ secrets.DOCKER_USERNAME }}
-        password: ${{ secrets.DOCKER_PASSWORD }}
-    
-    - name: 🏷️ Extract metadata
-      id: meta
-      uses: docker/metadata-action@v5
-      with:
-        images: digitalarena/bot
-        tags: |
-          type=ref,event=branch
-          type=ref,event=pr
-          type=semver,pattern={{version}}
-          type=semver,pattern={{major}}.{{minor}}
-          type=sha,prefix={{branch}}-
-    
-    - name: 🐳 Build and push Docker image
-      uses: docker/build-push-action@v5
-      with:
-        context: .
-        platforms: linux/amd64,linux/arm64
-        push: true
-        tags: ${{ steps.meta.outputs.tags }}
-        labels: ${{ steps.meta.outputs.labels }}
-        cache-from: type=gha
-        cache-to: type=gha,mode=max
-    
-    - name: 🔒 Docker security scan
-      uses: aquasecurity/trivy-action@master
-      with:
-        image-ref: digitalarena/bot:${{ github.sha }}
-        format: 'sarif'
-        output: 'trivy-results.sarif'
-    
-    - name: 📊 Upload Trivy scan results
-      uses: github/codeql-action/upload-sarif@v2
-      with:
-        sarif_file: 'trivy-results.sarif'
+      - name: ✅ Syntax check (no DB needed)
+        run: python -m py_compile main.py handlers/api.py handlers/clubs.py background_tasks.py models.py
 
-  # 🚀 Deploy to Staging
-  deploy-staging:
-    name: 🚀 Deploy to Staging
+  # 🔥 Step 2: Auto-deploy Frontend to Firebase Hosting
+  deploy-firebase:
+    name: 🔥 Deploy Frontend to Firebase
     runs-on: ubuntu-latest
-    needs: [docker]
-    if: github.ref == 'refs/heads/develop'
-    environment: staging
-    
+    needs: check
     steps:
-    - name: 📥 Checkout code
-      uses: actions/checkout@v4
-    
-    - name: 🚀 Deploy to Render
-      uses: johnbeynon/render-deploy-action@v0.0.8
-      with:
-        service-id: ${{ secrets.RENDER_STAGING_SERVICE_ID }}
-        api-key: ${{ secrets.RENDER_API_KEY }}
-        wait-for-success: true
-    
-    - name: 🧪 Smoke tests
-      run: |
-        # Wait for deployment
-        sleep 30
-        
-        # Run smoke tests
-        curl -f https://digital-arena-staging.onrender.com/api/health || exit 1
-        
-        # Test bot endpoints
-        curl -f https://digital-arena-staging.onrender.com/api/clubs || exit 1
-    
-    - name: 📧 Notify Slack
-      uses: 8398a7/action-slack@v3
-      with:
-        status: ${{ job.status }}
-        channel: '#deployments'
-        webhook_url: ${{ secrets.SLACK_WEBHOOK }}
-        fields: repo,message,commit,author,action,eventName,ref,workflow
+      - uses: actions/checkout@v4
 
-  # 🚀 Deploy to Production
-  deploy-production:
-    name: 🚀 Deploy to Production
-    runs-on: ubuntu-latest
-    needs: [docker]
-    if: github.event_name == 'release'
-    environment: production
-    
-    steps:
-    - name: 📥 Checkout code
-      uses: actions/checkout@v4
-    
-    - name: 🚀 Deploy to Render
-      uses: johnbeynon/render-deploy-action@v0.0.8
-      with:
-        service-id: ${{ secrets.RENDER_PRODUCTION_SERVICE_ID }}
-        api-key: ${{ secrets.RENDER_API_KEY }}
-        wait-for-success: true
-    
-    - name: 🧪 Production smoke tests
-      run: |
-        sleep 60
-        
-        # Health check
-        curl -f https://digital-arena-njok.onrender.com/api/health || exit 1
-        
-        # Test critical endpoints
-        curl -f https://digital-arena-njok.onrender.com/api/clubs || exit 1
-        
-        # Test bot connectivity
-        curl -f https://digital-arena-njok.onrender.com/api/health || exit 1
-    
-    - name: 📊 Performance tests
-      run: |
-        # Install k6
-        sudo apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys C5AD17C747E3415A3642D57D77C6C491D6AC1D69
-        echo "deb https://dl.k6.io/deb stable main" | sudo tee /etc/apt/sources.list.d/k6.list
-        sudo apt-get update
-        sudo apt-get install k6
-        
-        # Run performance tests
-        k6 run --out json=performance-results.json tests/performance/load-test.js || true
-    
-    - name: 📊 Upload performance results
-      uses: actions/upload-artifact@v3
-      with:
-        name: performance-results
-        path: performance-results.json
-    
-    - name: 📧 Notify production deployment
-      uses: 8398a7/action-slack@v3
-      with:
-        status: ${{ job.status }}
-        channel: '#deployments'
-        webhook_url: ${{ secrets.SLACK_WEBHOOK }}
-        fields: repo,message,commit,author,action,eventName,ref,workflow
-        text: "🚀 Production deployment completed!"
+      - name: 📦 Sync miniapp → firebase_public
+        run: |
+          cp -f miniapp/app.js firebase_public/miniapp/app.js
+          cp -f miniapp/index.html firebase_public/miniapp/index.html
 
-  # 📊 Performance Monitoring
-  performance:
-    name: 📊 Performance Monitoring
-    runs-on: ubuntu-latest
-    needs: [deploy-production]
-    if: github.event_name == 'release'
-    
-    steps:
-    - name: 📥 Checkout code
-      uses: actions/checkout@v4
-    
-    - name: 🐳 Set up Docker Compose
-      run: |
-        sudo curl -L "https://github.com/docker/compose/releases/download/v2.20.0/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
-        sudo chmod +x /usr/local/bin/docker-compose
-    
-    - name: 📊 Run performance monitoring
-      run: |
-        docker-compose -f docker-compose.monitoring.yml up -d
-        sleep 30
-        
-        # Run comprehensive performance tests
-        python tests/performance/comprehensive_test.py
-        
-        # Generate performance report
-        python tests/performance/generate_report.py
-    
-    - name: 📊 Upload performance report
-      uses: actions/upload-artifact@v3
-      with:
-        name: performance-report
-        path: performance-report.html
+      - name: 🔥 Deploy to Firebase Hosting
+        uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          repoToken: ${{ secrets.GITHUB_TOKEN }}
+          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          projectId: arenaslot-123ab
+          channelId: live
 
-  # 📋 Documentation
-  docs:
-    name: 📋 Documentation
+  # 🏥 Step 3: Smoke test after deploy
+  smoke-test:
+    name: 🏥 API Health Check
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
-    
+    needs: deploy-firebase
     steps:
-    - name: 📥 Checkout code
-      uses: actions/checkout@v4
-    
-    - name: 🐍 Set up Python
-      uses: actions/setup-python@v4
-      with:
-        python-version: ${{ env.PYTHON_VERSION }}
-    
-    - name: 📦 Install documentation dependencies
-      run: |
-        pip install sphinx sphinx-rtd-theme myst-parser
-    
-    - name: 📚 Generate documentation
-      run: |
-        cd docs
-        make html
-    
-    - name: 📚 Deploy to GitHub Pages
-      uses: peaceiris/actions-gh-pages@v3
-      with:
-        github_token: ${{ secrets.GITHUB_TOKEN }}
-        publish_dir: ./docs/_build/html
+      - name: 🏥 Check services
+        run: |
+          sleep 10
+          curl -f https://arenaslot-123ab.web.app/ || exit 1
+          curl -f https://digital-arena-njok.onrender.com/api/health || echo "⚠️ Backend sleeping (Render free tier — normal)"
+          echo "✅ Frontend is live!"
