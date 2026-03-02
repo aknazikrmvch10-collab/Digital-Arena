@@ -204,9 +204,9 @@ async def send_review_requests(bot):
                 from models import Review
                 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
                 now = now_tashkent()
-                # Find bookings completed in the last 5–10 minutes, no review yet
-                window_start = now - timedelta(minutes=10)
-                window_end = now - timedelta(minutes=5)
+                # Find bookings completed in the last 15 minutes, no review yet
+                window_start = now - timedelta(minutes=15)
+                window_end = now + timedelta(minutes=5)
 
                 result = await session.execute(
                     select(Booking).where(

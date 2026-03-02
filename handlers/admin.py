@@ -561,16 +561,142 @@ async def delete_club(callback: CallbackQuery):
         parse_mode="HTML"
     )
 
-# --- Placeholder handlers ---
+class BroadcastStates(StatesGroup):
+    waiting_for_message = State()
+    waiting_for_confirm = State()
+
 @router.callback_query(F.data == "admin_broadcast")
-async def admin_broadcast(callback: CallbackQuery):
-    """Placeholder for broadcast feature."""
-    await callback.answer("📢 Рассылка будет доступна в следующем обновлении!", show_alert=True)
+async def admin_broadcast_start(callback: CallbackQuery, state: FSMContext):
+    """Start broadcast feature."""
+    await callback.message.edit_text(
+        "📢 <b>Рассылка сообщений</b>\n\n"
+        "Отправьте сообщение, которое хотите разослать всем пользователям бота.\n"
+        "Вы можете отправить текст, фото или видео (с подписью).",
+        parse_mode="HTML",
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="Клубы", callback_data="admin_clubs")]]) # generic cancel back to menu
+    )
+    await state.set_state(BroadcastStates.waiting_for_message)
+
+@router.message(BroadcastStates.waiting_for_message)
+async def admin_broadcast_preview(message: Message, state: FSMContext):
+    await state.update_data(broadcast_msg_id=message.message_id)
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="✅ Отправить всем", callback_data="broadcast_confirm")],
+        [InlineKeyboardButton(text="❌ Отмена", callback_data="admin_clubs")]
+    ])
+    await message.copy_to(message.chat.id, reply_markup=kb)
+    await message.answer("👆 Так выглядит ваше сообщение. Начать рассылку?")
+    await state.set_state(BroadcastStates.waiting_for_confirm)
+
+@router.callback_query(BroadcastStates.waiting_for_confirm, F.data == "broadcast_confirm")
+async def admin_broadcast_send(callback: CallbackQuery, state: FSMContext):
+    data = await state.get_data()
+    msg_id = data.get("broadcast_msg_id")
+    await state.clear()
+    
+    await callback.message.edit_text("⏳ Рассылка началась. Это может занять некоторое время...")
+    
+    async with async_session_factory() as session:
+        result = await session.execute(select(User.telegram_id))
+        users = result.scalars().all()
+        
+    success = 0
+    from aiogram import Bot
+    from aiogram.exceptions import TelegramForbiddenError, TelegramBadRequest
+    bot: Bot = callback.bot
+    
+    for tg_id in users:
+        try:
+            await bot.copy_message(chat_id=tg_id, from_chat_id=callback.message.chat.id, message_id=msg_id)
+            success += 1
+            import asyncio
+            await asyncio.sleep(0.05) # Prevent flood wait
+        except (TelegramForbiddenError, TelegramBadRequest):
+            pass # User blocked the bot or chat not found
+            
+    await callback.message.edit_text(f"✅ Рассылка завершена!\nУспешно отправлено: <b>{success}</b> пользователям.", parse_mode="HTML")
+
+from keyboards.admin import get_club_settings_menu
+
+class ClubSettingsStates(StatesGroup):
+    waiting_for_desc = State()
+    waiting_for_hours = State()
+    waiting_for_photo = State()
+    waiting_for_wifi = State()
 
 @router.callback_query(F.data.startswith("admin_club_settings:"))
 async def admin_club_settings(callback: CallbackQuery):
-    """Placeholder for club settings."""
-    await callback.answer("⚙️ Настройки клуба будут доступны в следующем обновлении!", show_alert=True)
+    """Show club settings menu."""
+    club_id = int(callback.data.split(":")[1])
+    async with async_session_factory() as session:
+        club = await session.get(Club, club_id)
+        if not club:
+            await callback.answer("Клуб не найден!", show_alert=True)
+            return
+            
+        text = (
+            f"⚙️ <b>Настройки: {club.name}</b>\n\n"
+            f"📝 <b>Описание:</b> {club.description or 'Нет'}\n"
+            f"🕒 <b>Часы работы:</b> {club.working_hours or 'Нет'}\n"
+            f"📸 <b>Фото:</b> {'Установлено' if club.image_url else 'Нет'}\n"
+            f"📶 <b>Wi-Fi:</b> {club.wifi_info or 'Нет'}"
+        )
+        await callback.message.edit_text(text, parse_mode="HTML", reply_markup=get_club_settings_menu(club_id))
+
+@router.callback_query(F.data.startswith("edit_club_"))
+async def start_edit_club_field(callback: CallbackQuery, state: FSMContext):
+    parts = callback.data.split(":")
+    action = parts[0]
+    club_id = int(parts[1])
+    
+    await state.update_data(edit_club_id=club_id)
+    
+    if action == "edit_club_desc":
+        await callback.message.edit_text("Отправьте новое описание для клуба:", reply_markup=InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="Отмена", callback_data=f"admin_club_settings:{club_id}")]]))
+        await state.set_state(ClubSettingsStates.waiting_for_desc)
+    elif action == "edit_club_hours":
+        await callback.message.edit_text("Отправьте часы работы (например: 10:00 - 22:00 или 24/7):", reply_markup=InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="Отмена", callback_data=f"admin_club_settings:{club_id}")]]))
+        await state.set_state(ClubSettingsStates.waiting_for_hours)
+    elif action == "edit_club_photo":
+        await callback.message.edit_text("Отправьте прямую ссылку на фото (URL) клуба:", reply_markup=InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="Отмена", callback_data=f"admin_club_settings:{club_id}")]]))
+        await state.set_state(ClubSettingsStates.waiting_for_photo)
+    elif action == "edit_club_wifi":
+        await callback.message.edit_text("Отправьте название и пароль Wi-Fi (например: MyClub / password):", reply_markup=InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="Отмена", callback_data=f"admin_club_settings:{club_id}")]]))
+        await state.set_state(ClubSettingsStates.waiting_for_wifi)
+
+async def _save_club_field(message: Message, state: FSMContext, field: str, value: str):
+    data = await state.get_data()
+    club_id = data.get("edit_club_id")
+    await state.clear()
+    
+    async with async_session_factory() as session:
+        async with session.begin():
+            club = await session.get(Club, club_id)
+            if club:
+                setattr(club, field, value)
+                
+    await dict(message=message, club_id=club_id)
+    await message.answer(f"✅ Успешно обновлено!", reply_markup=InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="Вернуться к настройкам", callback_data=f"admin_club_settings:{club_id}")]]))
+
+@router.message(ClubSettingsStates.waiting_for_desc)
+async def save_club_desc(message: Message, state: FSMContext):
+    await _save_club_field(message, state, "description", message.text.strip())
+
+@router.message(ClubSettingsStates.waiting_for_hours)
+async def save_club_hours(message: Message, state: FSMContext):
+    await _save_club_field(message, state, "working_hours", message.text.strip())
+
+@router.message(ClubSettingsStates.waiting_for_photo)
+async def save_club_photo(message: Message, state: FSMContext):
+    url = message.text.strip()
+    if not url.startswith("http"):
+        await message.answer("❌ Ссылка должна начинаться с http или https. Попробуйте еще раз.")
+        return
+    await _save_club_field(message, state, "image_url", url)
+
+@router.message(ClubSettingsStates.waiting_for_wifi)
+async def save_club_wifi(message: Message, state: FSMContext):
+    await _save_club_field(message, state, "wifi_info", message.text.strip())
 
 
 # --- View/Delete Individual Item (PC or Table) ---

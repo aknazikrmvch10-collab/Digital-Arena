@@ -58,9 +58,22 @@ def get_club_detail_menu(club_id: int, venue_type: str = "computer_club") -> Inl
     items_label = "💻 Компьютеры" if venue_type == "computer_club" else "🍽 Столы"
     
     builder.button(text=items_label, callback_data=f"admin_club_computers:{club_id}") # Kept callback same for simplicity or update? Let's keep for now.
-    builder.button(text="⚙️ Настройки (скоро)", callback_data=f"admin_club_settings:{club_id}")
+    builder.button(text="⚙️ Настройки", callback_data=f"admin_club_settings:{club_id}")
     builder.button(text="🗑 Удалить", callback_data=f"admin_delete_club:{club_id}")
     builder.button(text="« Назад", callback_data="admin_clubs")
+    
+    builder.adjust(1)
+    return builder.as_markup()
+
+def get_club_settings_menu(club_id: int) -> InlineKeyboardMarkup:
+    """Menu for club settings."""
+    builder = InlineKeyboardBuilder()
+    
+    builder.button(text="📝 Изменить описание", callback_data=f"edit_club_desc:{club_id}")
+    builder.button(text="🕒 Изменить часы работы", callback_data=f"edit_club_hours:{club_id}")
+    builder.button(text="📸 Изменить фото", callback_data=f"edit_club_photo:{club_id}")
+    builder.button(text="📶 Изменить Wi-Fi", callback_data=f"edit_club_wifi:{club_id}")
+    builder.button(text="« Назад", callback_data=f"admin_club:{club_id}")
     
     builder.adjust(1)
     return builder.as_markup()
