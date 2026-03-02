@@ -43,12 +43,20 @@ class BookingRequest(BaseModel):
     @field_validator('start_time')
     @classmethod
     def validate_start_time(cls, v):
-        now = now_tashkent()
+        import datetime as _dt
+        from utils.timezone import now_tashkent
+        # Normalize v to naive UTC for comparison
+        if v.tzinfo is not None:
+            v_utc = v.astimezone(_dt.timezone.utc).replace(tzinfo=None)
+        else:
+            v_utc = v
+        # now_tashkent returns naive Tashkent time; convert to naive UTC by subtracting 5h
+        now_utc = now_tashkent() - _dt.timedelta(hours=5)
         # Allow bookings at least 1 hour in advance
-        if v <= now + timedelta(hours=1):
+        if v_utc <= now_utc + _dt.timedelta(hours=1):
             raise ValueError('Booking must be at least 1 hour in advance')
         # Max booking 90 days in advance
-        if v > now + timedelta(days=90):
+        if v_utc > now_utc + _dt.timedelta(days=90):
             raise ValueError('Booking cannot be more than 90 days in advance')
         return v
     
@@ -306,8 +314,13 @@ async def create_booking(booking: BookingRequest, request: Request, user_data: d
                 await session.flush()  # ✅ Use flush instead of commit (stays in transaction)
                 await session.refresh(user)
             
-            # Ensure start_time is naive
-            booking_start_naive = booking.start_time if booking.start_time.tzinfo else booking.start_time
+            # Ensure start_time is naive UTC (strip tz info without converting)
+            if booking.start_time.tzinfo is not None:
+                # Convert to UTC then remove tzinfo to store as naive UTC in DB
+                import datetime as _dt
+                booking_start_naive = booking.start_time.astimezone(_dt.timezone.utc).replace(tzinfo=None)
+            else:
+                booking_start_naive = booking.start_time
             
             # Verify item exists and get its name
             if venue_type == 'restaurant':
