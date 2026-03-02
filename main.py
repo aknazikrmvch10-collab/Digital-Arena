@@ -47,8 +47,9 @@ import os as _os
 _ALLOWED_ORIGINS = _os.getenv("ALLOWED_ORIGINS", "").split(",")
 # Always include known frontend origins
 _ALLOWED_ORIGINS = [o.strip() for o in _ALLOWED_ORIGINS if o.strip()] or [
-    "https://arenaslotz.web.app",
-    "https://arenaslotz.firebaseapp.com",
+    "https://arenaslot-123ab.web.app",        # Firebase Hosting (production)
+    "https://arenaslot-123ab.firebaseapp.com", # Firebase Hosting (alt)
+    "https://arenaslotz.web.app",              # Old domain (keep for backwards compat)
     "http://localhost:3000",
     "http://localhost:8000",
 ]
