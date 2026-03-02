@@ -1,6 +1,6 @@
 import asyncio
 from datetime import datetime, timedelta
-from utils.timezone import now_tashkent
+from utils.timezone import now_tashkent, now_utc
 from sqlalchemy import select, and_
 from database import async_session_factory
 from models import Booking, User, Club
@@ -14,7 +14,7 @@ async def check_no_show_bookings():
         try:
             async with async_session_factory() as session:
                 async with session.begin():
-                    now = now_tashkent()
+                    now = now_utc()  # naive UTC — matches DB storage
                     no_show_time = now - timedelta(minutes=15)
                     
                     # Find bookings that started > 15 mins ago, still CONFIRMED, not checked
@@ -48,7 +48,7 @@ async def check_auto_complete_bookings():
         try:
             async with async_session_factory() as session:
                 async with session.begin():
-                    now = now_tashkent()
+                    now = now_utc()  # naive UTC — matches DB storage
                     
                     # Find ACTIVE bookings that have ended
                     result = await session.execute(
