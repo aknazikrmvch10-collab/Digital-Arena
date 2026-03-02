@@ -16,6 +16,35 @@ logger = get_logger(__name__)
 
 router = APIRouter()
 
+# Simple cache for bot configuration
+_app_config_cache = {}
+
+@router.get("/config")
+async def get_app_config():
+    """
+    Returns public configuration for the frontend apps.
+    Fetches the bot username from Telegram API and caches it.
+    """
+    global _app_config_cache
+    if "bot_username" in _app_config_cache:
+        return _app_config_cache
+
+    try:
+        from config import settings
+        import aiohttp
+        async with aiohttp.ClientSession() as session:
+            async with session.get(f"https://api.telegram.org/bot{settings.BOT_TOKEN}/getMe") as response:
+                data = await response.json()
+                if data.get("ok"):
+                    _app_config_cache["bot_username"] = data["result"]["username"]
+                else:
+                    _app_config_cache["bot_username"] = "DigitalArena_bot" # Fallback
+    except Exception as e:
+        logger.error("Failed to fetch bot username for config", error=str(e))
+        _app_config_cache["bot_username"] = "DigitalArena_bot"
+        
+    return _app_config_cache
+
 # --- Request Models ---
 class BookingRequest(BaseModel):
     user_id: int # Telegram User ID

@@ -6,20 +6,37 @@ from fastapi import HTTPException, Header, Depends, Query, Request
 from sqlalchemy import select, and_, func
 from database import async_session_factory
 from models import User, Booking
-from utils.telegram_auth import validate_telegram_data
+from utils.telegram_auth import validate_telegram_data, validate_web_login_data
+import json
 
-
-async def get_current_user(request: Request, x_telegram_init_data: str | None = Header(None)) -> dict:
+async def get_current_user(
+    request: Request, 
+    x_telegram_init_data: str | None = Header(None),
+    x_telegram_web_login: str | None = Header(None)
+) -> dict:
     """
-    Validates Telegram Web App initData and returns user info.
-    Raises 401 if authentication fails.
+    Validates either Telegram Web App initData or Telegram Web Login data.
+    Returns user info dictionary. Raises 401 if authentication fails.
     """
-    if not x_telegram_init_data:
-        raise HTTPException(status_code=401, detail="Authentication required (Missing Header)")
+    user_data = None
     
-    user_data = validate_telegram_data(x_telegram_init_data)
+    # 1. Try Telegram WebApp auth (Standard)
+    if x_telegram_init_data:
+        user_data = validate_telegram_data(x_telegram_init_data)
+        
+    # 2. Try Telegram Widget auth (Standalone PWA)
+    elif x_telegram_web_login:
+        try:
+            web_auth_payload = json.loads(x_telegram_web_login)
+            user_data = validate_web_login_data(web_auth_payload)
+        except json.JSONDecodeError:
+            pass # Fall through to 401
+            
     if not user_data:
-        raise HTTPException(status_code=401, detail="Invalid Authentication Data")
+        raise HTTPException(
+            status_code=401, 
+            detail="Authentication required (Missing or Invalid Headers)"
+        )
     
     return user_data
 

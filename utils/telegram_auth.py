@@ -48,3 +48,48 @@ def validate_telegram_data(init_data: str) -> dict | None:
     except Exception as e:
         logger.error("Auth Validation Error", error=str(e))
         return None
+
+def validate_web_login_data(data: dict) -> dict | None:
+    """
+    Validates data received from the Telegram Login Widget.
+    The data should be a dictionary containing id, first_name, username, photo_url, auth_date, and hash.
+    Returns the user data dictionary if valid, else None.
+    """
+    if not data:
+        logger.warning("Web Login Auth failed: Empty data")
+        return None
+        
+    try:
+        # Clone the dictionary to avoid modifying the original
+        auth_data = data.copy()
+        
+        # Extract the hash
+        hash_value = auth_data.pop('hash', None)
+        if not hash_value:
+            logger.warning("Web Login Auth failed: No hash in data")
+            return None
+            
+        # Data check string is constructed by sorting all keys
+        # Format: key=value
+        data_check_list = []
+        for k, v in sorted(auth_data.items()):
+            if v is not None and v != "":
+                data_check_list.append(f"{k}={v}")
+                
+        data_check_string = "\n".join(data_check_list)
+        
+        # In Telegram Login Widget, the secret key is SHA256 of the bot token
+        secret_key = hashlib.sha256(settings.BOT_TOKEN.encode()).digest()
+        
+        # Calculate HMAC-SHA256
+        calculated_hash = hmac.new(secret_key, data_check_string.encode(), hashlib.sha256).hexdigest()
+        
+        if calculated_hash != hash_value:
+            logger.warning("Web Login Auth failed: Hash mismatch", calculated=calculated_hash, received=hash_value)
+            return None
+            
+        return auth_data
+    except Exception as e:
+        logger.error("Web Login Auth Validation Error", error=str(e))
+        return None
+
