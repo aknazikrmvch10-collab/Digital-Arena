@@ -4,13 +4,52 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>ArenaSlot – Бронирование</title>
+    <title>Digital Arena – Бронирование</title>
+
+    <!-- PWA: Manifest + Icons -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#7c3aed">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Digital Arena">
+    <link rel="apple-touch-icon" href="icon-192.png">
+    <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+
+    <!-- SEO -->
+    <meta name="description" content="Бронирование мест в игровых клубах и ресторанах Ташкента">
+
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <link rel="stylesheet" href="style.css?v=16">
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
 
+    <!-- PWA: Service Worker Registration (auto-updates) -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/miniapp/service-worker.js', { scope: '/miniapp/' })
+                    .then(reg => {
+                        console.log('[PWA] Service Worker registered:', reg.scope);
+                        // Auto-update: check for new version every time app opens
+                        reg.addEventListener('updatefound', () => {
+                            const newWorker = reg.installing;
+                            newWorker.addEventListener('statechange', () => {
+                                if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                                    // New version available — reload silently
+                                    console.log('[PWA] New version available, updating...');
+                                    window.location.reload();
+                                }
+                            });
+                        });
+                    })
+                    .catch(err => console.warn('[PWA] SW registration failed:', err));
+            });
+        }
+    </script>
+
 </head>
+
 
 <body>
     <div class="container" id="tab-clubs">

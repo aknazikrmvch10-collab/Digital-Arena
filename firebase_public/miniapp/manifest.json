@@ -1,0 +1,39 @@
+{
+  "name": "Digital Arena — Бронирование",
+  "short_name": "Digital Arena",
+  "description": "Бронирование мест в игровых клубах и ресторанах",
+  "start_url": "/miniapp/index.html",
+  "scope": "/miniapp/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0d0d1a",
+  "theme_color": "#7c3aed",
+  "lang": "ru",
+  "icons": [
+    {
+      "src": "/miniapp/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/miniapp/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["entertainment", "lifestyle"],
+  "shortcuts": [
+    {
+      "name": "Мои брони",
+      "url": "/miniapp/index.html#bookings",
+      "description": "Посмотреть мои брони"
+    },
+    {
+      "name": "Найти клуб",
+      "url": "/miniapp/index.html#clubs",
+      "description": "Найти и забронировать клуб"
+    }
+  ]
+}
