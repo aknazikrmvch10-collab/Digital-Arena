@@ -208,7 +208,7 @@ async def show_club_detail(callback: CallbackQuery):
 """
         await callback.message.edit_text(
             text,
-            reply_markup=get_club_detail_keyboard(club.id),
+            reply_markup=get_club_detail_keyboard(club.id, venue_type=getattr(club, 'venue_type', 'computer_club')),
             parse_mode="HTML"
         )
 

@@ -35,21 +35,26 @@ def get_clubs_keyboard(clubs: List[Club]) -> InlineKeyboardMarkup:
     buttons.append([InlineKeyboardButton(text="« Назад", callback_data="back_main")])
     return InlineKeyboardMarkup(inline_keyboard=buttons)
 
-def get_club_detail_keyboard(club_id: int) -> InlineKeyboardMarkup:
+def get_club_detail_keyboard(club_id: int, venue_type: str = 'computer_club') -> InlineKeyboardMarkup:
     """Club detail actions."""
     from config import settings as settings_config
     buttons = []
+    is_restaurant = venue_type == 'restaurant'
     
     # Only show Mini App button if BASE_URL is configured
     if settings_config.BASE_URL:
         from aiogram.types import WebAppInfo
+        mini_app_text = "🍽️ Выбрать стол (Mini App)" if is_restaurant else "🕹️ Выбрать место (Mini App)"
         buttons.append([InlineKeyboardButton(
-            text="🕹️ Выбрать место (Mini App)", 
+            text=mini_app_text, 
             web_app=WebAppInfo(url=f"{settings_config.BASE_URL}/miniapp/index.html?club_id={club_id}&v=14")
         )])
     
+    # Only show "Посмотреть компьютеры" button for computer clubs, not restaurants
+    if not is_restaurant:
+        buttons.append([InlineKeyboardButton(text="💻 Посмотреть компьютеры", callback_data=f"view_pcs:{club_id}")])
+    
     buttons.extend([
-        [InlineKeyboardButton(text="💻 Посмотреть компьютеры", callback_data=f"view_pcs:{club_id}")],
         [InlineKeyboardButton(text="📍 Местоположение", callback_data=f"location:{club_id}")],
         [InlineKeyboardButton(text="« Назад к списку", callback_data="find_clubs")]
     ])
