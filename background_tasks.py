@@ -42,6 +42,37 @@ async def check_no_show_bookings():
         # Check every minute
         await asyncio.sleep(60)
 
+async def check_activate_bookings():
+    """Transition bookings from CONFIRMED → ACTIVE when start_time arrives."""
+    while True:
+        try:
+            async with async_session_factory() as session:
+                async with session.begin():
+                    now = now_utc()  # naive UTC — matches DB storage
+
+                    # Find CONFIRMED bookings whose start_time has arrived
+                    result = await session.execute(
+                        select(Booking).where(
+                            and_(
+                                Booking.status == "CONFIRMED",
+                                Booking.start_time <= now,
+                                Booking.check_timeout == False
+                            )
+                        )
+                    )
+                    bookings = result.scalars().all()
+
+                    for booking in bookings:
+                        booking.status = "ACTIVE"
+                        logger.info("Booking activated", booking_id=booking.id)
+
+                    if bookings:
+                        await session.commit()
+        except Exception as e:
+            logger.error("Error in activate bookings checker", error=str(e))
+
+        await asyncio.sleep(60)
+
 async def check_auto_complete_bookings():
     """Automatically mark bookings as COMPLETED when end_time passes."""
     while True:
@@ -72,6 +103,7 @@ async def check_auto_complete_bookings():
         
         # Check every minute
         await asyncio.sleep(60)
+
 
 async def send_reminder_notifications(bot):
     """Send reminder notifications to clients based on their preferences."""

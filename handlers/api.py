@@ -3,7 +3,7 @@ from database import async_session_factory
 from models import Club, Computer, User, Booking, RestaurantTable
 from sqlalchemy import select, and_, func
 from pydantic import BaseModel, field_validator
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from utils.timezone import now_tashkent
 from typing import Optional, List
 from drivers.factory import DriverFactory
@@ -137,7 +137,7 @@ async def get_clubs(
         )
         clubs = result.scalars().all()
         
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc).replace(tzinfo=None)
         clubs_data = []
         for c in clubs:
             d = c.to_dict()
@@ -251,7 +251,7 @@ async def get_items(
             # 🔗 SYNC: Find all CURRENTLY ACTIVE bookings for this club right now
             # This ensures bot bookings show as occupied in the WebApp and vice versa
             from datetime import datetime
-            now = datetime.utcnow()
+            now = datetime.now(timezone.utc).replace(tzinfo=None)
             active_bookings_result = await session.execute(
                 select(Booking.item_id).where(
                     Booking.club_id == club_id,
@@ -825,7 +825,7 @@ async def admin_stats_api(request: Request):
     await _require_admin(request)
 
     async with async_session_factory() as session:
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc).replace(tzinfo=None)
         today_start_utc = now.replace(hour=0, minute=0, second=0, microsecond=0)
         week_start = today_start_utc - timedelta(days=7)
 

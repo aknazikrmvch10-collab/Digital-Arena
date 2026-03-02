@@ -196,8 +196,12 @@ async def main():
     await seed_test_clubs()
     
     # Start background tasks
-    from background_tasks import check_no_show_bookings, check_auto_complete_bookings, send_reminder_notifications, send_review_requests
+    from background_tasks import (
+        check_no_show_bookings, check_activate_bookings,
+        check_auto_complete_bookings, send_reminder_notifications, send_review_requests
+    )
     asyncio.create_task(check_no_show_bookings())
+    asyncio.create_task(check_activate_bookings())   # CONFIRMED → ACTIVE
     asyncio.create_task(check_auto_complete_bookings())
     asyncio.create_task(send_reminder_notifications(bot))
     asyncio.create_task(send_review_requests(bot))
