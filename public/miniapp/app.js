@@ -662,12 +662,17 @@ async function confirmBooking() {
     btn.disabled = true;
 
     try {
-        // Build start_time in Tashkent timezone (UTC+5)
-        const tashkent = nowTashkent();
-        tashkent.setDate(tashkent.getDate() + bookingState.dayOffset);
-        tashkent.setHours(bookingState.selectedHour, 0, 0, 0);
-        // Convert Tashkent time back to UTC for API (subtract 5 hours)
-        const startTimeUTC = new Date(tashkent.getTime() - (5 * 3600000));
+        // Build start_time correctly: use UTC methods only to avoid device timezone interference.
+        // Step 1: Get today's date in Tashkent (UTC+5) using UTC offset arithmetic
+        const TASHKENT_OFFSET_MS = 5 * 60 * 60 * 1000;
+        const nowMs = Date.now();
+        // Date in Tashkent by shifting UTC timestamp
+        const tashkentNow = new Date(nowMs + TASHKENT_OFFSET_MS);
+        // Step 2: Apply day offset and set the selected hour (all in UTC methods on the shifted date)
+        tashkentNow.setUTCDate(tashkentNow.getUTCDate() + bookingState.dayOffset);
+        tashkentNow.setUTCHours(bookingState.selectedHour, 0, 0, 0);
+        // Step 3: Shift back to real UTC
+        const startTimeUTC = new Date(tashkentNow.getTime() - TASHKENT_OFFSET_MS);
 
         let userId = 0;
         if (tg.initDataUnsafe && tg.initDataUnsafe.user) {
