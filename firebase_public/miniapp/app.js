@@ -60,13 +60,12 @@ async function submitPhoneCode() {
             first_name: data.full_name || 'User',
             phone: data.phone
         }));
-        _sessionAuthData = JSON.parse(localStorage.getItem('session_user'));
 
-        // Hide auth screen and start app
-        document.getElementById('auth-screen').style.display = 'none';
+        // Trigger success feedback if available
         haptic('success');
-        document.getElementById('loading-overlay').style.display = 'flex';
-        initApp();
+
+        // Reload the page to transition out of the auth screen and init the Main App
+        window.location.reload();
 
     } catch (e) {
         errEl.textContent = e.message;
@@ -74,6 +73,53 @@ async function submitPhoneCode() {
         btn.disabled = false;
         btn.textContent = '🔐 Войти';
     }
+}
+
+// ==================== PWA INSTALLATION ====================
+let deferredPrompt;
+
+window.addEventListener('beforeinstallprompt', (e) => {
+    // Prevent the mini-infobar from appearing on mobile
+    e.preventDefault();
+    // Stash the event so it can be triggered later.
+    deferredPrompt = e;
+    // Update UI notify the user they can install the PWA
+    const installBtn = document.getElementById('pwa-install-btn');
+    if (installBtn) {
+        installBtn.style.display = 'block';
+    }
+});
+
+async function installPWA() {
+    if (deferredPrompt) {
+        // Show the install prompt
+        deferredPrompt.prompt();
+        // Wait for the user to respond to the prompt
+        const { outcome } = await deferredPrompt.userChoice;
+        console.log(`User response to the install prompt: ${outcome}`);
+        // We've used the prompt, and can't use it again, throw it away
+        deferredPrompt = null;
+        // Hide the install button
+        const installBtn = document.getElementById('pwa-install-btn');
+        if (installBtn) installBtn.style.display = 'none';
+    } else {
+        // Fallback for iOS Safari which doesn't support beforeinstallprompt
+        alert("Для установки на iOS:\nНажмите кнопку 'Поделиться' внизу экрана (квадрат со стрелочкой) и выберите 'На экран «Домой»'.");
+    }
+}
+
+window.addEventListener('appinstalled', () => {
+    // Hide the app-provided install promotion
+    console.log('PWA was installed');
+    const installBtn = document.getElementById('pwa-install-btn');
+    if (installBtn) installBtn.style.display = 'none';
+});
+    } catch (e) {
+    errEl.textContent = e.message;
+    errEl.style.display = 'block';
+    btn.disabled = false;
+    btn.textContent = '🔐 Войти';
+}
 }
 
 // Check auth state and show form if not authenticated

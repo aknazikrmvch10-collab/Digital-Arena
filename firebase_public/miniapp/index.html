@@ -68,7 +68,16 @@
             </div>
 
             <p class="auth-hint">
-                Нет кода? Откройте Telegram бота и напишите <code>/myapp</code>
+                Нет кода? Нажмите <b>«📱 Приложение»</b> в боте.
+            </p>
+
+            <button id="pwa-install-btn" class="auth-btn"
+                style="display: none; background: linear-gradient(135deg, #10b981, #059669); margin-top: 15px;"
+                onclick="installPWA()">
+                📥 Установить Приложение
+            </button>
+            <p class="auth-hint" style="font-size: 11px; opacity: 0.7; margin-top: 5px;">
+                Для iOS: нажмите «Поделиться» ➡️ «На экран Домой»
             </p>
         </div>
     </div>
