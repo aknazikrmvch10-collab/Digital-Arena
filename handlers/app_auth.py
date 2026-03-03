@@ -79,15 +79,23 @@ async def handle_contact(message: Message):
     expires = now + timedelta(minutes=10)
 
     async with async_session_factory() as session:
-        # Invalidate any existing unused codes for this user
-        from sqlalchemy import select, update
+        # 1. Save phone number to base User model
+        user_result = await session.execute(
+            select(User).where(User.tg_id == tg_id)
+        )
+        user = user_result.scalars().first()
+        if user:
+            user.phone = phone
+
+        # 2. Invalidate any existing unused codes for this user
+        from sqlalchemy import update
         await session.execute(
             update(AppAuthCode)
             .where(AppAuthCode.user_id == tg_id, AppAuthCode.used == False)
             .values(used=True)
         )
 
-        # Create new code
+        # 3. Create new code
         auth_code = AppAuthCode(
             user_id=tg_id,
             phone=phone,

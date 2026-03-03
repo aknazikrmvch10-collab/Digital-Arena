@@ -50,35 +50,4 @@ async def confirm_age(callback: CallbackQuery):
     await callback.answer()
 
 
-@router.message(F.contact)
-async def handle_contact(message: Message):
-    """Save the user's phone number from a shared contact."""
-    contact = message.contact
-    
-    # Security: only accept user's own contact (user_id can be None in some clients)
-    if contact.user_id and contact.user_id != message.from_user.id:
-        await message.answer("Пожалуйста, отправьте свой собственный контакт.")
-        return
-    
-    try:
-        async with async_session_factory() as session:
-            result = await session.execute(
-                select(User).where(User.tg_id == message.from_user.id)
-            )
-            user = result.scalars().first()
-            
-            if user:
-                user.phone = contact.phone_number
-                await session.commit()
-        
-        from keyboards.main import get_main_reply_keyboard
-        await message.answer(
-            f"✅ <b>Номер сохранен: {contact.phone_number}</b>\n\n"
-            "Теперь вы можете пользоваться всеми функциями бота.\n"
-            "Находите и бронируйте места через меню ниже!",
-            reply_markup=get_main_reply_keyboard(),
-            parse_mode="HTML"
-        )
-    except Exception as e:
-        await message.answer(f"❌ Ошибка при сохранении номера. Попробуйте ещё раз или напишите /phone")
-
+    await callback.answer()
