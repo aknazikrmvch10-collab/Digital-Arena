@@ -903,12 +903,84 @@ async def admin_stats_api(request: Request):
                 "start_time": b.start_time.isoformat() if b.start_time else None,
             })
 
+        # --- NEW ANALYTICS ---
+
+        # Total bookings this week
+        bookings_week = await session.scalar(
+            select(func.count(Booking.id)).where(Booking.created_at >= week_start)
+        ) or 0
+
+        # No-show rate (last 7 days)
+        completed_plus_noshow = await session.scalar(
+            select(func.count(Booking.id)).where(
+                and_(Booking.created_at >= week_start,
+                     Booking.status.in_(["COMPLETED", "NO_SHOW"]))
+            )
+        ) or 0
+        noshow_count = await session.scalar(
+            select(func.count(Booking.id)).where(
+                and_(Booking.created_at >= week_start, Booking.status == "NO_SHOW")
+            )
+        ) or 0
+        noshow_rate = round(noshow_count / completed_plus_noshow * 100) if completed_plus_noshow > 0 else 0
+
+        # Revenue last 7 days (from Computer price_per_hour * duration)
+        revenue_result = await session.execute(
+            select(Computer.price_per_hour, Booking.duration_minutes).join(
+                Computer,
+                and_(
+                    Booking.club_id == Computer.club_id,
+                    Booking.computer_id == Computer.computer_id
+                )
+            ).where(
+                and_(Booking.created_at >= week_start, Booking.status.in_(["COMPLETED", "ACTIVE"]))
+            )
+        )
+        revenue_week = sum(
+            (price or 0) * (mins or 60) / 60
+            for price, mins in revenue_result
+        )
+
+        # Peak hours (hour → booking count, all time)
+        hour_result = await session.execute(
+            select(func.extract("hour", Booking.start_time).label("hour"), func.count(Booking.id).label("cnt"))
+            .where(Booking.start_time.isnot(None))
+            .group_by(func.extract("hour", Booking.start_time))
+            .order_by(func.extract("hour", Booking.start_time))
+        )
+        hour_map = {int(h): c for h, c in hour_result}
+        peak_hours = [{"hour": h, "count": hour_map.get(h, 0)} for h in range(24)]
+
+        # Clubs stats — bookings count and avg rating per club
+        clubs_result = await session.execute(
+            select(Club.name, func.count(Booking.id).label("cnt"), func.avg(Review.rating).label("avg_r"))
+            .outerjoin(Booking, Booking.club_id == Club.id)
+            .outerjoin(Review, Review.club_id == Club.id)
+            .group_by(Club.id, Club.name)
+            .order_by(func.count(Booking.id).desc())
+        )
+        clubs_stats = [
+            {
+                "name": name,
+                "bookings_count": cnt or 0,
+                "avg_rating": round(float(avg_r), 1) if avg_r else None
+            }
+            for name, cnt, avg_r in clubs_result
+        ]
+        top_club = clubs_stats[0]["name"] if clubs_stats else None
+
     return {
         "users_total": users_total,
         "active_now": active_now,
         "bookings_today": bookings_today,
         "bookings_total": bookings_total,
+        "bookings_week": bookings_week,
         "avg_rating": avg_rating,
+        "noshow_rate": noshow_rate,
+        "revenue_week": int(revenue_week),
+        "top_club": top_club,
+        "peak_hours": peak_hours,
+        "clubs_stats": clubs_stats,
         "daily_bookings": daily_bookings,
         "recent_bookings": recent_bookings,
     }

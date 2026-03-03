@@ -388,18 +388,23 @@
 
 <body>
 
-    <!-- Login Overlay -->
     <div class="overlay" id="login-overlay">
         <div class="login-box">
             <div class="login-logo">🎮</div>
             <div class="login-title">Digital Arena Admin</div>
             <div class="login-sub">Войдите через Telegram чтобы продолжить</div>
-            <button class="tg-login-btn" onclick="loginViaTelegram()">
-                <span class="tg-icon">✈️</span> Войти через Telegram
-            </button>
-            <div class="loading" id="loading-indicator">
+            <div id="tg-login-btn-area">
+                <button class="tg-login-btn" onclick="loginViaTelegram()">
+                    <span class="tg-icon">✈️</span> Войти через Telegram
+                </button>
+            </div>
+            <div id="tg-widget-area" style="display:none; min-height:44px; justify-content:center; display:none;"></div>
+            <div class="loading" id="loading-indicator"
+                style="display:none; align-items:center; gap:8px; justify-content:center; margin-top:16px;">
                 <span class="spinner"></span> Проверяем доступ...
             </div>
+            <p id="login-error" style="color:#ff4757; font-size:13px; margin-top:12px; display:none;">⛔ Доступ запрещён.
+                Вы не администратор.</p>
         </div>
     </div>
 
@@ -455,6 +460,29 @@
                 <div class="stat-label">Средний рейтинг</div>
                 <div class="stat-value" id="stat-rating" style="color: var(--warning)">—</div>
             </div>
+            <div class="stat-card">
+                <div class="stat-icon">💰</div>
+                <div class="stat-label">Выручка за 7 дней</div>
+                <div class="stat-value" id="stat-revenue" style="color: var(--success)">—</div>
+                <div class="stat-sub">сум</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">👻</div>
+                <div class="stat-label">No-Show %</div>
+                <div class="stat-value" id="stat-noshow" style="color: var(--error)">—</div>
+                <div class="stat-sub">за 7 дней</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">📆</div>
+                <div class="stat-label">За неделю</div>
+                <div class="stat-value" id="stat-week" style="color: var(--accent)">—</div>
+                <div class="stat-sub">броней</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">🏆</div>
+                <div class="stat-label">Топ клуб</div>
+                <div class="stat-value" id="stat-top-club" style="font-size:16px; line-height:1.3">—</div>
+            </div>
         </div>
 
         <!-- Bookings Chart -->
@@ -463,6 +491,33 @@
             <div class="chart-placeholder" id="bar-chart">
                 <!-- Filled by JS -->
             </div>
+        </div>
+
+        <!-- Peak Hours -->
+        <div class="card">
+            <div class="section-title">⏰ Часы пик <span class="badge" id="peak-label">—</span></div>
+            <div class="chart-placeholder" id="peak-chart" style="height:100px">
+                <!-- Filled by JS -->
+            </div>
+        </div>
+
+        <!-- Top Clubs -->
+        <div class="card">
+            <div class="section-title">🏢 Рейтинг клубов</div>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Клуб</th>
+                        <th>Броней</th>
+                        <th>Рейтинг</th>
+                    </tr>
+                </thead>
+                <tbody id="clubs-table">
+                    <tr>
+                        <td colspan="3" style="text-align:center;color:var(--muted);padding:20px">Загрузка...</td>
+                    </tr>
+                </tbody>
+            </table>
         </div>
 
         <!-- Recent Bookings -->
@@ -496,32 +551,61 @@
         let adminTgId = localStorage.getItem('admin_tg_id');
         let adminInitData = localStorage.getItem('admin_init_data');
 
-        // --- Login via Telegram (WebApp) ---
+        // --- Login via Telegram ---
         function loginViaTelegram() {
             const tg = window.Telegram?.WebApp;
             if (tg && tg.initData) {
+                // Inside Telegram WebApp — use initData directly
                 adminInitData = tg.initData;
                 adminTgId = tg.initDataUnsafe?.user?.id;
                 localStorage.setItem('admin_init_data', adminInitData);
                 localStorage.setItem('admin_tg_id', adminTgId);
-                document.getElementById('loading-indicator').style.display = 'block';
+                document.getElementById('loading-indicator').style.display = 'flex';
                 loadStats();
             } else {
-                // Fallback for non-Telegram browser: ask for TG ID as demo
-                const id = prompt("Введите ваш Telegram ID (для демо):");
-                if (id && !isNaN(id)) {
-                    adminTgId = id;
-                    localStorage.setItem('admin_tg_id', id);
-                    document.getElementById('login-overlay').style.display = 'none';
-                    loadStats();
-                }
+                // In browser — show Login Widget
+                document.getElementById('tg-login-btn-area').style.display = 'none';
+                document.getElementById('tg-widget-area').style.display = 'block';
+                document.getElementById('loading-indicator').style.display = 'none';
+                loadTelegramWidget();
             }
         }
 
-        // Auto-dismiss overlay if already logged in
-        if (adminTgId) {
-            document.getElementById('login-overlay').style.display = 'none';
+        async function loadTelegramWidget() {
+            // Fetch bot username from backend config
+            let botUsername = 'ArenaSlot_bot';
+            try {
+                const r = await fetch('/api/config');
+                const c = await r.json();
+                botUsername = c.bot_username || botUsername;
+            } catch (e) { }
+
+            const script = document.createElement('script');
+            script.src = 'https://telegram.org/js/telegram-widget.js?22';
+            script.setAttribute('data-telegram-login', botUsername);
+            script.setAttribute('data-size', 'large');
+            script.setAttribute('data-radius', '10');
+            script.setAttribute('data-onauth', 'onTelegramAdminAuth(user)');
+            script.setAttribute('data-request-access', 'write');
+            document.getElementById('tg-widget-area').appendChild(script);
+        }
+
+        function onTelegramAdminAuth(user) {
+            if (!user || !user.hash) return;
+            // Store web login data
+            adminTgId = user.id;
+            localStorage.setItem('admin_tg_id', user.id);
+            localStorage.setItem('admin_web_login', JSON.stringify(user));
+            document.getElementById('loading-indicator').style.display = 'flex';
             loadStats();
+        }
+
+        // Auto-dismiss overlay if already logged in and re-validate
+        if (adminTgId) {
+            document.getElementById('login-overlay').style.display = 'flex';
+            document.getElementById('loading-indicator').style.display = 'flex';
+            document.getElementById('tg-login-btn-area').style.display = 'none';
+            loadStats(); // will hide overlay only if backend confirms auth
         }
 
         function showSection(name) {
@@ -536,28 +620,78 @@
         }
 
         async function loadStats() {
-            document.getElementById('login-overlay').style.display = 'none';
             try {
-                const r = await fetch(`${API}/admin/stats`, {
-                    headers: { 'X-Admin-TG-ID': adminTgId || '' }
-                });
+                const headers = { 'X-Admin-TG-ID': adminTgId || '' };
+                const webLogin = localStorage.getItem('admin_web_login');
+                if (webLogin) headers['X-Telegram-Web-Login'] = webLogin;
+                const initData = localStorage.getItem('admin_init_data');
+                if (initData) headers['X-Admin-Init-Data'] = initData;
+
+                const r = await fetch(`${API}/admin/stats`, { headers });
                 if (r.status === 401 || r.status === 403) {
+                    // Show not-admin error
+                    document.getElementById('login-error').style.display = 'block';
+                    document.getElementById('loading-indicator').style.display = 'none';
+                    document.getElementById('tg-login-btn-area').style.display = 'none';
                     document.getElementById('login-overlay').style.display = 'flex';
+                    localStorage.clear();
                     return;
                 }
+                document.getElementById('login-overlay').style.display = 'none';
+
                 const d = await r.json();
                 document.getElementById('stat-users').textContent = d.users_total ?? '—';
                 document.getElementById('stat-active').textContent = d.active_now ?? '—';
                 document.getElementById('stat-today').textContent = d.bookings_today ?? '—';
                 document.getElementById('stat-rating').textContent = d.avg_rating ? `${d.avg_rating}★` : '—';
+                document.getElementById('stat-week').textContent = d.bookings_week ?? '—';
+                document.getElementById('stat-noshow').textContent = d.noshow_rate != null ? `${d.noshow_rate}%` : '—';
+                if (d.revenue_week != null) {
+                    document.getElementById('stat-revenue').textContent = Number(d.revenue_week).toLocaleString('ru');
+                }
+                if (d.top_club) {
+                    document.getElementById('stat-top-club').textContent = d.top_club;
+                }
                 document.getElementById('last-updated').textContent = 'Обновлено: ' + new Date().toLocaleTimeString('ru');
                 renderBookingsChart(d.daily_bookings || []);
+                renderPeakHours(d.peak_hours || []);
                 renderBookingsTable(d.recent_bookings || []);
+                renderClubsTable(d.clubs_stats || []);
                 document.getElementById('bookings-count').textContent = d.bookings_total ?? '—';
             } catch (e) {
                 document.getElementById('last-updated').textContent = 'Ошибка загрузки';
             }
         }
+
+        function renderPeakHours(hours) {
+            const chart = document.getElementById('peak-chart');
+            if (!hours.length) {
+                chart.innerHTML = '<span style="color:var(--muted);margin:auto">Нет данных</span>';
+                return;
+            }
+            const max = Math.max(...hours.map(h => h.count), 1);
+            const peak = hours.reduce((a, b) => b.count > a.count ? b : a, hours[0]);
+            document.getElementById('peak-label').textContent = `${peak.hour}:00-${peak.hour + 1}:00`;
+            chart.innerHTML = hours.map(h => {
+                const ht = Math.max(4, (h.count / max) * 85);
+                return `<div class="bar" style="height:${ht}px; opacity:${h.hour === peak.hour ? 1 : 0.5}" title="${h.hour}:00 — ${h.count} броней"></div>`;
+            }).join('');
+        }
+
+        function renderClubsTable(clubs) {
+            const tbody = document.getElementById('clubs-table');
+            if (!clubs.length) {
+                tbody.innerHTML = '<tr><td colspan="3" style="text-align:center;color:var(--muted);padding:20px">Нет данных</td></tr>';
+                return;
+            }
+            tbody.innerHTML = clubs.map(c => `
+                <tr>
+                    <td>${c.name}</td>
+                    <td><b>${c.bookings_count}</b></td>
+                    <td>${c.avg_rating ? `${c.avg_rating}★` : '—'}</td>
+                </tr>`).join('');
+        }
+
 
         async function loadBookings() {
             try {
