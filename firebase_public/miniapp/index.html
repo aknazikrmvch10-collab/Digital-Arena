@@ -57,9 +57,19 @@
         <div class="auth-card">
             <img src="icon-192.png" alt="Digital Arena Logo" class="auth-logo">
             <h2>Digital Arena</h2>
-            <p>Войдите через Telegram для бронирования мест</p>
-            <div id="telegram-login-widget-container"></div>
-            <p class="auth-hint">Приложение работает автономно</p>
+            <p>Введите номер телефона и код из бота</p>
+
+            <div class="auth-form">
+                <input type="tel" id="auth-phone" class="auth-input" placeholder="+998901234567" autocomplete="tel">
+                <input type="text" id="auth-code" class="auth-input" placeholder="Код из бота (6 цифр)" maxlength="6"
+                    inputmode="numeric" autocomplete="one-time-code">
+                <button id="auth-submit-btn" class="auth-btn" onclick="submitPhoneCode()">🔐 Войти</button>
+                <p id="auth-error" class="auth-error" style="display:none;"></p>
+            </div>
+
+            <p class="auth-hint">
+                Нет кода? Откройте Telegram бота и напишите <code>/myapp</code>
+            </p>
         </div>
     </div>
     <div class="container" id="tab-clubs">

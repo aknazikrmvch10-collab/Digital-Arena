@@ -45,6 +45,102 @@ async def get_app_config():
         
     return _app_config_cache
 
+
+# ===================== PHONE+CODE AUTH =====================
+
+class PhoneCodeRequest(BaseModel):
+    phone: str   # e.g. "+998901234567"
+    code: str    # 6-digit code from bot
+
+@router.post("/auth/verify-code")
+async def verify_phone_code(req: PhoneCodeRequest):
+    """
+    Verify phone+code pair from the standalone PWA login screen.
+    Returns a session_token on success.
+    """
+    import uuid
+    from models import AppAuthCode, AppSession
+    from datetime import timezone as _tz
+
+    # Normalize phone
+    phone = req.phone.strip()
+    if not phone.startswith("+"):
+        phone = "+" + phone
+
+    code = req.code.strip()
+
+    async with async_session_factory() as session:
+        now = datetime.now(_tz.utc).replace(tzinfo=None)
+
+        # Find a valid matching code
+        result = await session.execute(
+            select(AppAuthCode).where(
+                and_(
+                    AppAuthCode.phone == phone,
+                    AppAuthCode.code == code,
+                    AppAuthCode.used == False,
+                )
+            ).order_by(AppAuthCode.created_at.desc()).limit(1)
+        )
+        auth_code = result.scalar_one_or_none()
+
+        if not auth_code:
+            raise HTTPException(status_code=401, detail="Неверный номер или код")
+
+        # Check expiry (expires_at stored as naive UTC)
+        expires = auth_code.expires_at
+        if hasattr(expires, 'tzinfo') and expires.tzinfo is not None:
+            expires = expires.replace(tzinfo=None)
+        if now > expires:
+            raise HTTPException(status_code=401, detail="Код истёк. Запросите новый через /myapp в боте")
+
+        # Mark code as used
+        auth_code.used = True
+
+        # Get user info
+        user = await session.execute(
+            select(User).where(User.tg_id == auth_code.user_id)
+        )
+        user = user.scalar_one_or_none()
+
+        # Create a session token
+        token = str(uuid.uuid4())
+        app_session = AppSession(
+            user_id=auth_code.user_id,
+            session_token=token,
+            phone=phone,
+            full_name=user.full_name if user else None,
+        )
+        session.add(app_session)
+        await session.commit()
+
+        return {
+            "success": True,
+            "session_token": token,
+            "user_id": auth_code.user_id,
+            "full_name": user.full_name if user else None,
+            "phone": phone,
+        }
+
+
+@router.post("/auth/logout")
+async def app_logout(x_session_token: str = Header(None)):
+    """Invalidate a standalone PWA session."""
+    if not x_session_token:
+        return {"success": True}
+    from models import AppSession
+    async with async_session_factory() as session:
+        result = await session.execute(
+            select(AppSession).where(AppSession.session_token == x_session_token)
+        )
+        app_session = result.scalar_one_or_none()
+        if app_session:
+            await session.delete(app_session)
+            await session.commit()
+    return {"success": True}
+
+
+
 # --- Request Models ---
 class BookingRequest(BaseModel):
     user_id: int # Telegram User ID

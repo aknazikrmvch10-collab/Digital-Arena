@@ -240,3 +240,32 @@ class PromoCode(Base):
         if self.expires_at and now_tashkent() > self.expires_at:
             return False
         return True
+
+
+# ====================== PWA PHONE AUTH ======================
+
+class AppAuthCode(Base):
+    """Temporary code sent via Telegram bot for standalone PWA login."""
+    __tablename__ = "app_auth_codes"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(BigInteger, nullable=False, index=True)   # Telegram user ID
+    phone = Column(String, nullable=False)                      # Phone number (e.g. +998901234567)
+    code = Column(String(6), nullable=False)                    # 6-digit code
+    created_at = Column(DateTime(timezone=True), default=lambda: now_tashkent())
+    expires_at = Column(DateTime(timezone=True), nullable=False) # 10 min TTL
+    used = Column(Boolean, default=False)
+
+
+class AppSession(Base):
+    """Active session token for a standalone PWA user."""
+    __tablename__ = "app_sessions"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(BigInteger, nullable=False, index=True)    # Telegram user ID
+    session_token = Column(String, unique=True, index=True)     # UUID token
+    phone = Column(String, nullable=True)
+    full_name = Column(String, nullable=True)
+    created_at = Column(DateTime(timezone=True), default=lambda: now_tashkent())
+    last_seen = Column(DateTime(timezone=True), default=lambda: now_tashkent())
+

@@ -7,80 +7,101 @@ tg.expand();
 // setTimeout(() => { ... }, 1000);
 
 // ==================== AUTH LAYER ====================
-let _standaloneAuthData = null;
+let _sessionAuthData = null; // Holds { user_id, full_name, phone } from session token
 
 // Helper to get auth headers for API calls
 function getAuthHeaders() {
     if (tg.initData) {
         return { 'X-Telegram-Init-Data': tg.initData };
-    } else if (_standaloneAuthData) {
-        return { 'X-Telegram-Web-Login': JSON.stringify(_standaloneAuthData) };
+    }
+    const token = localStorage.getItem('session_token');
+    if (token) {
+        return { 'X-Session-Token': token };
     }
     return {};
 }
 
-// Callback for Telegram Login Widget
-function onTelegramAuth(user) {
-    if (user && user.hash) {
-        localStorage.setItem('tg_web_login', JSON.stringify(user));
-        _standaloneAuthData = user;
-        document.getElementById('auth-screen').style.display = 'none';
+// Submit phone + code form from the auth screen
+async function submitPhoneCode() {
+    const phone = document.getElementById('auth-phone').value.trim();
+    const code = document.getElementById('auth-code').value.trim();
+    const errEl = document.getElementById('auth-error');
+    const btn = document.getElementById('auth-submit-btn');
 
-        // Show splash screen manually
+    errEl.style.display = 'none';
+
+    if (!phone || !code || code.length < 6) {
+        errEl.textContent = 'Введите номер телефона и код (6 цифр)';
+        errEl.style.display = 'block';
+        return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = '⏳ Проверяем...';
+
+    try {
+        const res = await fetch(`${API_BASE_URL}/api/auth/verify-code`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ phone, code })
+        });
+
+        if (!res.ok) {
+            const err = await res.json();
+            throw new Error(err.detail || 'Неверный код');
+        }
+
+        const data = await res.json();
+
+        // Save session
+        localStorage.setItem('session_token', data.session_token);
+        localStorage.setItem('session_user', JSON.stringify({
+            id: data.user_id,
+            first_name: data.full_name || 'User',
+            phone: data.phone
+        }));
+        _sessionAuthData = JSON.parse(localStorage.getItem('session_user'));
+
+        // Hide auth screen and start app
+        document.getElementById('auth-screen').style.display = 'none';
         haptic('success');
         document.getElementById('loading-overlay').style.display = 'flex';
-
-        // Initialize app
         initApp();
+
+    } catch (e) {
+        errEl.textContent = e.message;
+        errEl.style.display = 'block';
+        btn.disabled = false;
+        btn.textContent = '🔐 Войти';
     }
 }
 
-// Check auth state and initialize widget if needed
+// Check auth state and show form if not authenticated
 async function checkAuthAndInit() {
-    // 1. Context: Telegram Mini App
+    // 1. Inside Telegram Mini App
     if (tg.initData) {
         return true;
     }
 
-    // 2. Context: Standalone PWA
-    const cachedAuth = localStorage.getItem('tg_web_login');
-    if (cachedAuth) {
+    // 2. Standalone PWA with existing session
+    const token = localStorage.getItem('session_token');
+    const userData = localStorage.getItem('session_user');
+    if (token && userData) {
         try {
-            _standaloneAuthData = JSON.parse(cachedAuth);
-            // Optional: validate token expiration (e.g. 30 days)
+            _sessionAuthData = JSON.parse(userData);
             return true;
         } catch (e) {
-            localStorage.removeItem('tg_web_login');
+            localStorage.removeItem('session_token');
+            localStorage.removeItem('session_user');
         }
     }
 
-    // 3. Not Authenticated -> Show Widget
+    // 3. Not authenticated — show form
     document.getElementById('auth-screen').style.display = 'flex';
     document.getElementById('loading-overlay').style.display = 'none';
-
-    try {
-        const res = await fetch(`${API_BASE_URL}/api/config`);
-        const config = await res.json();
-        const botUsername = config.bot_username || "ArenaSlot_bot";
-
-        // Render script tag for Telegram Widget
-        const script = document.createElement('script');
-        script.src = "https://telegram.org/js/telegram-widget.js?22";
-        script.setAttribute("data-telegram-login", botUsername);
-        script.setAttribute("data-size", "large");
-        script.setAttribute("data-radius", "10");
-        script.setAttribute("data-onauth", "onTelegramAuth(user)");
-        script.setAttribute("data-request-access", "write");
-
-        document.getElementById('telegram-login-widget-container').appendChild(script);
-
-    } catch (e) {
-        console.error("Failed to load config for widget", e);
-        document.getElementById('telegram-login-widget-container').innerHTML =
-            "<button onclick='location.reload()' style='background:var(--primary);color:#000;border:none;padding:10px 20px;border-radius:10px;font-weight:bold;'>Обновить</button>";
-    }
     return false;
 }
+
 
 // ==================== DARK THEME ====================
 // Авто-определение темы из Telegram

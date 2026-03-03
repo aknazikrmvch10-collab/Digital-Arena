@@ -5,17 +5,21 @@ Provides helpers for auth, ownership verification, and pagination.
 from fastapi import HTTPException, Header, Depends, Query, Request
 from sqlalchemy import select, and_, func
 from database import async_session_factory
-from models import User, Booking
+from models import User, Booking, AppSession
 from utils.telegram_auth import validate_telegram_data, validate_web_login_data
 import json
 
 async def get_current_user(
     request: Request, 
     x_telegram_init_data: str | None = Header(None),
-    x_telegram_web_login: str | None = Header(None)
+    x_telegram_web_login: str | None = Header(None),
+    x_session_token: str | None = Header(None),
 ) -> dict:
     """
-    Validates either Telegram Web App initData or Telegram Web Login data.
+    Validates auth via one of 3 methods:
+    1. Telegram WebApp initData (inside Telegram Mini App)
+    2. Telegram Widget Web Login (via Telegram Login Widget)
+    3. X-Session-Token (from our phone+code auth system)
     Returns user info dictionary. Raises 401 if authentication fails.
     """
     user_data = None
@@ -30,7 +34,22 @@ async def get_current_user(
             web_auth_payload = json.loads(x_telegram_web_login)
             user_data = validate_web_login_data(web_auth_payload)
         except json.JSONDecodeError:
-            pass # Fall through to 401
+            pass
+
+    # 3. Try Session Token auth (Phone+Code PWA login)
+    elif x_session_token:
+        async with async_session_factory() as db:
+            result = await db.execute(
+                select(AppSession).where(AppSession.session_token == x_session_token)
+            )
+            session_obj = result.scalar_one_or_none()
+            if session_obj:
+                # Build a user_data dict compatible with the rest of the app
+                user_data = {
+                    "id": session_obj.user_id,
+                    "first_name": session_obj.full_name or "User",
+                    "phone": session_obj.phone,
+                }
             
     if not user_data:
         raise HTTPException(
@@ -39,6 +58,7 @@ async def get_current_user(
         )
     
     return user_data
+
 
 
 async def verify_booking_owner(

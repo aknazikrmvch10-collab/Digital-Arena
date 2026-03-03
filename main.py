@@ -166,6 +166,7 @@ async def command_start_handler(message: Message) -> None:
 from handlers import clubs, settings, age_verification, filters, admin, webapp, users
 from handlers import referral, reviews
 from handlers import language, promo, broadcast, club_settings
+from handlers import app_auth  # Phone+Code PWA auth
 
 
 # Register routers
@@ -182,6 +183,7 @@ dp.include_router(language.router) # Language /language command
 dp.include_router(promo.router) # Promo codes /promo command
 dp.include_router(broadcast.router) # Admin broadcast
 dp.include_router(club_settings.router) # Club settings FSM
+dp.include_router(app_auth.router)     # /myapp phone+code auth
 dp.include_router(start_router)
 
 async def main():
