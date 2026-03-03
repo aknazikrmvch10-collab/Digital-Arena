@@ -1,6 +1,6 @@
 // Digital Arena PWA — Service Worker
-// Версия: v1. Увеличьте номер версии при каждом обновлении контента.
-const CACHE_NAME = 'digital-arena-v1';
+// Версия: v2. Увеличивайте при каждом обновлении контента!
+const CACHE_NAME = 'digital-arena-v2';
 
 // Файлы, которые кешируем для работы офлайн
 const STATIC_ASSETS = [
@@ -14,7 +14,7 @@ const STATIC_ASSETS = [
 // ===================== УСТАНОВКА =====================
 // При установке кешируем все статические файлы
 self.addEventListener('install', event => {
-    console.log('[SW] Installing v1...');
+    console.log('[SW] Installing v2...');
     event.waitUntil(
         caches.open(CACHE_NAME)
             .then(cache => cache.addAll(STATIC_ASSETS))
