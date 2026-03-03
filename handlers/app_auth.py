@@ -31,9 +31,10 @@ def _generate_code() -> str:
 
 
 @router.message(Command("myapp"))
+@router.message(F.text == "📱 Приложение")
 async def cmd_myapp(message: Message):
     """
-    Handle /myapp command — asks the user to share their phone number.
+    Handle /myapp command or button — asks the user to share their phone number.
     """
     keyboard = ReplyKeyboardMarkup(
         keyboard=[

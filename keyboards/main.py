@@ -18,7 +18,8 @@ def get_main_reply_keyboard():
     
     buttons = [
         [KeyboardButton(text="🏢 Клубы"), KeyboardButton(text="👤 Мои брони")],
-        [KeyboardButton(text="⚙️ Настройки"), KeyboardButton(text="🆘 Помощь")]
+        [KeyboardButton(text="📱 Приложение"), KeyboardButton(text="⚙️ Настройки")],
+        [KeyboardButton(text="🆘 Помощь")]
     ]
     return ReplyKeyboardMarkup(keyboard=buttons, resize_keyboard=True)
 
