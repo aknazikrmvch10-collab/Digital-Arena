@@ -48,6 +48,3 @@ async def confirm_age(callback: CallbackQuery):
             parse_mode="HTML"
         )
     await callback.answer()
-
-
-    await callback.answer()
