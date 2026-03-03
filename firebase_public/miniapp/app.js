@@ -40,7 +40,7 @@ async function submitPhoneCode() {
     btn.textContent = '⏳ Проверяем...';
 
     try {
-        const res = await fetch(`${API_BASE_URL}/api/auth/verify-code`, {
+        const res = await fetch(`${API_BASE_URL}/auth/verify-code`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ phone, code })
