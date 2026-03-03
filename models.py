@@ -119,6 +119,18 @@ class Computer(Base):
             "type": "computer"
         }
 
+class ClubZoneSetting(Base):
+    """Custom settings (like photos and descriptions) for a specific zone in a club"""
+    __tablename__ = "club_zone_settings"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    club_id = Column(Integer, ForeignKey("clubs.id"), nullable=False, index=True)
+    zone_name = Column(String, nullable=False, index=True)
+    image_url = Column(String, nullable=True)
+    description = Column(String, nullable=True)
+    
+    club = relationship("Club", foreign_keys=[club_id])
+
 class RestaurantTable(Base):
     __tablename__ = "restaurant_tables"
     

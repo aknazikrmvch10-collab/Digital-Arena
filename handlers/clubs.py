@@ -3,7 +3,7 @@ from aiogram.types import CallbackQuery, Message
 from aiogram.filters import Command
 from sqlalchemy import select, and_
 
-from models import Club, User, Booking
+from models import Club, User, Booking, ClubZoneSetting
 from database import async_session_factory
 from keyboards.main import (get_clubs_keyboard, get_club_detail_keyboard, get_computers_keyboard, 
                               get_main_menu, get_date_keyboard, get_time_keyboard,
@@ -268,7 +268,7 @@ async def show_zones(callback: CallbackQuery):
 
 @router.callback_query(F.data.startswith("view_zone_pcs:"))
 async def show_zone_computers(callback: CallbackQuery):
-    """Show computers for a specific zone."""
+    """Show computers for a specific zone, with optional photo from ClubZoneSetting."""
     parts = callback.data.split(":")
     club_id = int(parts[1])
     zone_name = parts[2]
@@ -279,6 +279,15 @@ async def show_zone_computers(callback: CallbackQuery):
         if not club:
             await callback.answer("❌ Клуб не найден.", show_alert=True)
             return
+        
+        # Fetch zone settings (photo + description)
+        zone_setting_result = await session.execute(
+            select(ClubZoneSetting).where(
+                ClubZoneSetting.club_id == club_id,
+                ClubZoneSetting.zone_name == zone_name
+            )
+        )
+        zone_setting = zone_setting_result.scalars().first()
         
         try:
             driver = DriverFactory.get_driver(club.driver_type, {"club_id": club.id, **club.connection_config})
@@ -294,13 +303,38 @@ async def show_zone_computers(callback: CallbackQuery):
             await callback.answer("В этой зоне нет компьютеров.", show_alert=True)
             return
         
-        text = f"💻 <b>Компьютеры в зоне {zone_name}</b>\n\nВыберите ПК для бронирования:"
+        text = f"💻 <b>Зона {zone_name}</b>"
+        if zone_setting and zone_setting.description:
+            text += f"\n\n{zone_setting.description}"
+        text += "\n\nВыберите ПК для бронирования:"
         
-        await callback.message.edit_text(
-            text,
-            reply_markup=get_computers_keyboard(club.id, zone_computers),
-            parse_mode="HTML"
-        )
+        keyboard = get_computers_keyboard(club.id, zone_computers)
+        
+        # If zone has a photo — send it as a photo message, otherwise just edit text
+        if zone_setting and zone_setting.image_url:
+            try:
+                await callback.message.delete()
+                await callback.message.answer_photo(
+                    photo=zone_setting.image_url,
+                    caption=text,
+                    reply_markup=keyboard,
+                    parse_mode="HTML"
+                )
+            except Exception:
+                # Fallback: just show text if photo fails
+                await callback.message.answer(
+                    text,
+                    reply_markup=keyboard,
+                    parse_mode="HTML"
+                )
+        else:
+            await callback.message.edit_text(
+                text,
+                reply_markup=keyboard,
+                parse_mode="HTML"
+            )
+        
+        await callback.answer()
 
 @router.callback_query(F.data.startswith("pc_page:"))
 async def show_computers_page(callback: CallbackQuery):

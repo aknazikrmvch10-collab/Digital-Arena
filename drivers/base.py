@@ -31,6 +31,9 @@ class ZoneSchema(BaseModel):
     gpu: Optional[str] = None
     ram_gb: Optional[int] = None
     monitor_hz: Optional[int] = None
+    # Rich UI extensions
+    image_url: Optional[str] = None
+    description: Optional[str] = None
 
 class BaseDriver(ABC):
     """

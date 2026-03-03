@@ -110,7 +110,7 @@ async def show_stats(callback: CallbackQuery):
             select(func.count(Booking.id)).where(Booking.created_at >= week_start)
         )
 
-        # --- Revenue estimate (price_per_hour * duration) ---
+        # --- Weekly Revenue estimate ---
         week_result = await session.execute(
             select(Booking).where(
                 and_(Booking.created_at >= week_start, Booking.status.in_(["COMPLETED", "ACTIVE", "CONFIRMED"]))
@@ -142,17 +142,48 @@ async def show_stats(callback: CallbackQuery):
             [f"  {i+1}. {row.computer_name} — {row.cnt} броней" for i, row in enumerate(top_pcs)]
         ) or "  Нет данных"
 
+        # --- Per-Club daily revenue breakdown ---
+        all_clubs_result = await session.execute(select(Club).where(Club.is_active == True))
+        all_clubs = all_clubs_result.scalars().all()
+        
+        per_club_lines = []
+        for club in all_clubs:
+            club_today_result = await session.execute(
+                select(Booking).where(
+                    and_(
+                        Booking.club_id == club.id,
+                        Booking.created_at >= today_start,
+                        Booking.status.in_(["CONFIRMED", "ACTIVE", "COMPLETED"])
+                    )
+                )
+            )
+            club_today_bookings = club_today_result.scalars().all()
+            club_today_revenue = 0
+            for b in club_today_bookings:
+                if b.item_id:
+                    pc = await session.get(Computer, b.item_id)
+                    if pc and pc.price_per_hour:
+                        duration_h = (b.end_time - b.start_time).total_seconds() / 3600
+                        club_today_revenue += int(pc.price_per_hour * duration_h)
+            if club_today_bookings or True:  # Show all clubs always for demo
+                per_club_lines.append(
+                    f"  🏢 <b>{club.name}</b>: {len(club_today_bookings)} броней"
+                    + (f" (~{club_today_revenue:,} сум)" if club_today_revenue > 0 else "")
+                )
+        
+        per_club_text = "\n".join(per_club_lines) if per_club_lines else "  Нет клубов"
+
     text = (
         f"📊 <b>Статистика платформы</b>\n\n"
         f"👥 Пользователей: <b>{users_count}</b>\n"
         f"🏢 Клубов: <b>{clubs_count}</b>\n"
         f"🟢 Активных сеансов: <b>{active_now}</b>\n\n"
-        f"📅 <b>Брони сегодня:</b> {today_bookings}\n"
-        f"📅 <b>Брони за неделю:</b> {week_bookings}\n"
+        f"📅 <b>Брони сегодня:</b> {today_bookings}  |  <b>За неделю:</b> {week_bookings}\n"
         f"📝 Всего броней: {bookings_total}\n\n"
         f"💰 <b>Выручка за неделю:</b> ~{revenue:,} сум\n\n"
         f"⭐ <b>Отзывы:</b> {reviews_count} (средний: {avg_rating})\n\n"
-        f"🏆 <b>Популярные места:</b>\n{top_pcs_text}"
+        f"🏆 <b>Популярные места:</b>\n{top_pcs_text}\n\n"
+        f"📊 <b>Брони сегодня по клубам:</b>\n{per_club_text}"
     )
 
     from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton

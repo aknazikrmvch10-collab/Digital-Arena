@@ -40,18 +40,32 @@ async function submitPhoneCode() {
     btn.textContent = '⏳ Проверяем...';
 
     try {
-        const res = await fetch(`${API_BASE_URL}/auth/verify-code`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ phone, code })
-        });
-
-        if (!res.ok) {
-            const err = await res.json();
-            throw new Error(err.detail || 'Неверный код');
+        let res;
+        try {
+            res = await fetch(`${API_BASE_URL}/auth/verify-code`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ phone, code })
+            });
+        } catch (networkErr) {
+            throw new Error('Нет соединения с сервером. Проверьте интернет и попробуйте снова.');
         }
 
-        const data = await res.json();
+        // Safely parse response — server might return HTML on error/sleep
+        const rawText = await res.text();
+        let data;
+        try {
+            data = JSON.parse(rawText);
+        } catch {
+            if (res.status === 503 || rawText.includes('<!doctype')) {
+                throw new Error('Сервер просыпается (Render free tier). Подождите 30 секунд и попробуйте снова.');
+            }
+            throw new Error(`Ошибка сервера (${res.status}). Попробуйте ещё раз.`);
+        }
+
+        if (!res.ok) {
+            throw new Error(data.detail || 'Неверный код');
+        }
 
         // Save session
         localStorage.setItem('session_token', data.session_token);
@@ -73,6 +87,43 @@ async function submitPhoneCode() {
         btn.disabled = false;
         btn.textContent = '🔐 Войти';
     }
+}
+
+
+try {
+    const res = await fetch(`${API_BASE_URL}/auth/verify-code`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone, code })
+    });
+
+    if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.detail || 'Неверный код');
+    }
+
+    const data = await res.json();
+
+    // Save session
+    localStorage.setItem('session_token', data.session_token);
+    localStorage.setItem('session_user', JSON.stringify({
+        id: data.user_id,
+        first_name: data.full_name || 'User',
+        phone: data.phone
+    }));
+
+    // Trigger success feedback if available
+    haptic('success');
+
+    // Reload the page to transition out of the auth screen and init the Main App
+    window.location.reload();
+
+} catch (e) {
+    errEl.textContent = e.message;
+    errEl.style.display = 'block';
+    btn.disabled = false;
+    btn.textContent = '🔐 Войти';
+}
 }
 
 // ==================== PWA INSTALLATION ====================

@@ -298,3 +298,34 @@ async def send_review_requests(bot):
             logger.error("Error in review request task", error=str(e))
 
         await asyncio.sleep(300)  # Check every 5 minutes
+
+
+async def cleanup_old_logs():
+    """
+    Delete log files older than 7 days from the logs/ directory.
+    Runs once a day.
+    """
+    import os
+    import glob
+    while True:
+        try:
+            cutoff = datetime.now() - timedelta(days=7)
+            log_patterns = ["logs/*.log", "logs/*.txt", "*.log"]
+            deleted = 0
+            for pattern in log_patterns:
+                for filepath in glob.glob(pattern):
+                    try:
+                        mtime = datetime.fromtimestamp(os.path.getmtime(filepath))
+                        if mtime < cutoff:
+                            os.remove(filepath)
+                            deleted += 1
+                            logger.info("Deleted old log file", path=filepath)
+                    except Exception as e:
+                        logger.warning("Could not delete log file", path=filepath, error=str(e))
+            if deleted:
+                logger.info("Log cleanup complete", deleted_count=deleted)
+        except Exception as e:
+            logger.error("Error in log cleanup task", error=str(e))
+
+        # Run once every 24 hours
+        await asyncio.sleep(86400)
