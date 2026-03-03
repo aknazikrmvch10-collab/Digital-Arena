@@ -69,52 +69,58 @@ async def handle_contact(message: Message):
         )
         return
 
-    phone = contact.phone_number
-    if not phone.startswith("+"):
-        phone = "+" + phone
+    try:
+        phone = contact.phone_number
+        if not phone.startswith("+"):
+            phone = "+" + phone
 
-    tg_id = message.from_user.id
-    code = _generate_code()
-    now = now_tashkent()
-    expires = now + timedelta(minutes=10)
+        tg_id = message.from_user.id
+        code = _generate_code()
+        now = now_tashkent()
+        expires = now + timedelta(minutes=10)
 
-    async with async_session_factory() as session:
-        # 1. Save phone number to base User model
-        user_result = await session.execute(
-            select(User).where(User.tg_id == tg_id)
+        async with async_session_factory() as session:
+            # 1. Save phone number to base User model
+            user_result = await session.execute(
+                select(User).where(User.tg_id == tg_id)
+            )
+            user = user_result.scalars().first()
+            if user:
+                user.phone = phone
+
+            # 2. Invalidate any existing unused codes for this user
+            from sqlalchemy import update
+            await session.execute(
+                update(AppAuthCode)
+                .where(AppAuthCode.user_id == tg_id, AppAuthCode.used == False)
+                .values(used=True)
+            )
+
+            # 3. Create new code
+            auth_code = AppAuthCode(
+                user_id=tg_id,
+                phone=phone,
+                code=code,
+                expires_at=expires,
+            )
+            session.add(auth_code)
+            await session.commit()
+
+        logger.info("App auth code generated", tg_id=tg_id, phone=phone)
+
+        await message.answer(
+            f"✅ <b>Ваш код для входа в приложение:</b>\n\n"
+            f"<code>{code}</code>\n\n"
+            f"📱 <b>Номер:</b> {phone}\n"
+            f"⏰ Код действует <b>10 минут</b>.\n\n"
+            f"Откройте приложение и введите:\n"
+            f"• Ваш номер телефона: <code>{phone}</code>\n"
+            f"• Этот код: <code>{code}</code>",
+            reply_markup=ReplyKeyboardRemove(),
+            parse_mode="HTML"
         )
-        user = user_result.scalars().first()
-        if user:
-            user.phone = phone
+    except Exception as e:
+        import traceback
+        err_str = traceback.format_exc()
+        await message.answer(f"❌ Internal Server Error:\n<pre>{err_str[-1000:]}</pre>", parse_mode="HTML")
 
-        # 2. Invalidate any existing unused codes for this user
-        from sqlalchemy import update
-        await session.execute(
-            update(AppAuthCode)
-            .where(AppAuthCode.user_id == tg_id, AppAuthCode.used == False)
-            .values(used=True)
-        )
-
-        # 3. Create new code
-        auth_code = AppAuthCode(
-            user_id=tg_id,
-            phone=phone,
-            code=code,
-            expires_at=expires,
-        )
-        session.add(auth_code)
-        await session.commit()
-
-    logger.info("App auth code generated", tg_id=tg_id, phone=phone)
-
-    await message.answer(
-        f"✅ <b>Ваш код для входа в приложение:</b>\n\n"
-        f"<code>{code}</code>\n\n"
-        f"📱 <b>Номер:</b> {phone}\n"
-        f"⏰ Код действует <b>10 минут</b>.\n\n"
-        f"Откройте приложение и введите:\n"
-        f"• Ваш номер телефона: <code>{phone}</code>\n"
-        f"• Этот код: <code>{code}</code>",
-        reply_markup=ReplyKeyboardRemove(),
-        parse_mode="HTML"
-    )
