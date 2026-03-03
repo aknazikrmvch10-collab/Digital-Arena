@@ -114,13 +114,7 @@ window.addEventListener('appinstalled', () => {
     const installBtn = document.getElementById('pwa-install-btn');
     if (installBtn) installBtn.style.display = 'none';
 });
-    } catch (e) {
-    errEl.textContent = e.message;
-    errEl.style.display = 'block';
-    btn.disabled = false;
-    btn.textContent = '🔐 Войти';
-}
-}
+
 
 // Check auth state and show form if not authenticated
 async function checkAuthAndInit() {
@@ -1281,6 +1275,9 @@ function getAuthUser() {
 
 // ==================== INITIALIZATION ====================
 function initApp() {
+    const overlay = document.getElementById('loading-overlay');
+    if (overlay) overlay.style.display = 'none';
+
     loadClubData();
     enableGlobalScroll();
 }
