@@ -45,14 +45,18 @@ fastapi_app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handle
 from fastapi.middleware.cors import CORSMiddleware
 import os as _os
 _ALLOWED_ORIGINS = _os.getenv("ALLOWED_ORIGINS", "").split(",")
-# Always include known frontend origins
-_ALLOWED_ORIGINS = [o.strip() for o in _ALLOWED_ORIGINS if o.strip()] or [
-    "https://arenaslot-123ab.web.app",        # Firebase Hosting (production)
-    "https://arenaslot-123ab.firebaseapp.com", # Firebase Hosting (alt)
-    "https://arenaslotz.web.app",              # Old domain (keep for backwards compat)
+_ALLOWED_ORIGINS = [o.strip() for o in _ALLOWED_ORIGINS if o.strip()]
+# Always include Firebase hosting origins regardless of env vars
+_FIREBASE_ORIGINS = [
+    "https://arenaslot-123ab.web.app",
+    "https://arenaslot-123ab.firebaseapp.com",
+    "https://arenaslotz.web.app",
     "http://localhost:3000",
     "http://localhost:8000",
 ]
+for _o in _FIREBASE_ORIGINS:
+    if _o not in _ALLOWED_ORIGINS:
+        _ALLOWED_ORIGINS.append(_o)
 fastapi_app.add_middleware(
     CORSMiddleware,
     allow_origins=_ALLOWED_ORIGINS,

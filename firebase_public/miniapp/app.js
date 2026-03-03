@@ -254,11 +254,11 @@ function showToast(message, type = 'normal') {
     }, 3000);
 }
 
-// API Configuration — use Firebase hosting proxy for production to avoid CORS
+// API Configuration — use Render directly (CORS is configured for Firebase origins)
 const IS_LOCAL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
 const API_BASE_URL = IS_LOCAL
     ? `http://${window.location.host}/api`
-    : '/api';  // Firebase rewrites /api/** → Render backend
+    : 'https://digital-arena-njok.onrender.com/api';
 
 // Load club data
 async function loadClubData() {
