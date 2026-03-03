@@ -81,6 +81,7 @@ async def handle_contact(message: Message):
 
         async with async_session_factory() as session:
             # 1. Save phone number to base User model
+            from sqlalchemy import select
             user_result = await session.execute(
                 select(User).where(User.tg_id == tg_id)
             )
