@@ -41,6 +41,8 @@ jobs:
         run: |
           cp -f miniapp/app.js firebase_public/miniapp/app.js
           cp -f miniapp/index.html firebase_public/miniapp/index.html
+          cp -f miniapp/style.css firebase_public/miniapp/style.css
+          cp -f miniapp/i18n.js firebase_public/miniapp/i18n.js
 
       - name: 🔥 Deploy to Firebase Hosting
         uses: FirebaseExtended/action-hosting-deploy@v0
