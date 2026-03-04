@@ -206,7 +206,7 @@ async def main():
     from background_tasks import (
         check_no_show_bookings, check_activate_bookings,
         check_auto_complete_bookings, send_reminder_notifications,
-        send_review_requests, cleanup_old_logs
+        send_review_requests, cleanup_old_logs, keep_awake
     )
     asyncio.create_task(check_no_show_bookings())
     asyncio.create_task(check_activate_bookings())   # CONFIRMED → ACTIVE
@@ -214,6 +214,7 @@ async def main():
     asyncio.create_task(send_reminder_notifications(bot))
     asyncio.create_task(send_review_requests(bot))
     asyncio.create_task(cleanup_old_logs())  # Delete log files older than 7 days
+    asyncio.create_task(keep_awake())        # Prevent Render from sleeping
 
     # Start FastAPI server in background
     async def start_server():

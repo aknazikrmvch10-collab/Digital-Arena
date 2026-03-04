@@ -70,8 +70,12 @@ async def verify_phone_code(req: PhoneCodeRequest):
     code = req.code.strip()
 
     async with async_session_factory() as session:
-        now = datetime.now(_tz.utc).replace(tzinfo=None)
-
+        # Use utils.timezone.now_tashkent to match app_auth.py which creates the code
+        from utils.timezone import now_tashkent
+        now = now_tashkent()
+        # In SQLite, datetimes are stored naively, but since app_auth.py uses now_tashkent() 
+        # which returns a timezone aware object, we should compare aware-to-aware or naive-to-naive based on what DB returns
+        
         # Find a valid matching code
         result = await session.execute(
             select(AppAuthCode).where(
@@ -87,11 +91,14 @@ async def verify_phone_code(req: PhoneCodeRequest):
         if not auth_code:
             raise HTTPException(status_code=401, detail="Неверный номер или код")
 
-        # Check expiry (expires_at stored as naive UTC)
+        # Check expiry
         expires = auth_code.expires_at
-        if hasattr(expires, 'tzinfo') and expires.tzinfo is not None:
-            expires = expires.replace(tzinfo=None)
-        if now > expires:
+        
+        # Normalize both to naive for comparison
+        now_naive = now.replace(tzinfo=None)
+        expires_naive = expires.replace(tzinfo=None) if expires.tzinfo else expires
+        
+        if now_naive > expires_naive:
             raise HTTPException(status_code=401, detail="Код истёк. Запросите новый через /myapp в боте")
 
         # Mark code as used
@@ -438,6 +445,14 @@ async def create_booking(booking: BookingRequest, request: Request, user_data: d
                 session.add(user)
                 await session.flush()  # ✅ Use flush instead of commit (stays in transaction)
                 await session.refresh(user)
+            
+            # ✅ SECURITY: Age verification check (prevents bypassing bot's age gate via PWA)
+            if user and not getattr(user, 'age_confirmed', True):
+                raise HTTPException(
+                    status_code=403,
+                    detail="Необходима возрастная верификация. Откройте бота и подтвердите возраст."
+                )
+
             
             # Ensure start_time is naive UTC (strip tz info without converting)
             if booking.start_time.tzinfo is not None:

@@ -329,3 +329,32 @@ async def cleanup_old_logs():
 
         # Run once every 24 hours
         await asyncio.sleep(86400)
+
+
+async def keep_awake():
+    """
+    Prevent Render free tier from sleeping by pinging our own health endpoint.
+    Render sleeps after 15 minutes of inactivity, so we ping every 14 minutes.
+    """
+    import aiohttp
+    import os
+    
+    # URL to ping - default to the known render URL, but can be overridden
+    app_url = os.getenv("APP_URL", "https://digital-arena-njok.onrender.com")
+    health_url = f"{app_url.rstrip('/')}/api/health"
+    
+    while True:
+        try:
+            # Wait 14 minutes (840 seconds)
+            await asyncio.sleep(840)
+            
+            async with aiohttp.ClientSession() as session:
+                async with session.get(health_url, timeout=10) as response:
+                    if response.status == 200:
+                        logger.info("Keep-awake ping successful", status=response.status)
+                    else:
+                        logger.warning("Keep-awake ping returned non-200", status=response.status)
+        except asyncio.CancelledError:
+            break
+        except Exception as e:
+            logger.error("Keep-awake ping failed", error=str(e))

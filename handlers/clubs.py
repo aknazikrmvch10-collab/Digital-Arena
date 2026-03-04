@@ -95,66 +95,16 @@ async def show_my_bookings(event: Message | CallbackQuery):
             text = "📋 <b>Мои брони</b>\n\n"
             buttons = []
             
-            for b in bookings:
-                # ✅ FIX: Club is already loaded, no extra query needed
-                club = b.club  # No database query here!
-                
-                # Status emoji and description
-                if b.status == "CONFIRMED":
-                    status_emoji = "🟡"
-                    status_text = "Ожидает"
-                elif b.status == "ACTIVE":
-                    status_emoji = "🟢"
-                    status_text = "Играет"
-                elif b.status == "COMPLETED":
-                    status_emoji = "✅"
-                    status_text = "Завершено"
-                elif b.status == "NO_SHOW":
-                    status_emoji = "❌"
-                    status_text = "Не пришел"
-                elif b.status == "CANCELLED":
-                    status_emoji = "❌"
-                    status_text = "Отменено"
-                else:
-                    status_emoji = "⏳"
-                    status_text = b.status
-                
-                from datetime import timezone, timedelta
-                tz = timezone(timedelta(hours=5))
-                text += f"{status_emoji} <b>{b.computer_name}</b> в {club.name}\n"
-                text += f"  {b.start_time.astimezone(tz).strftime('%d.%m %H:%M')} - {b.end_time.astimezone(tz).strftime('%H:%M')}\n"
-                text += f"  Статус: {status_text}\n\n"
-                
-                if b.status in ["CONFIRMED", "ACTIVE"]:
-                    from aiogram.types import InlineKeyboardButton
-                    action_buttons = []
-                    if getattr(b, "confirmation_code", None):
-                        action_buttons.append(
-                            InlineKeyboardButton(
-                                text=f"🎟 Показать код",
-                                callback_data=f"show_code:{b.id}"
-                            )
-                        )
-                    if b.status == "CONFIRMED":
-                        action_buttons.append(
-                            InlineKeyboardButton(
-                                text=f"❌ Отменить",
-                                callback_data=f"cancel_booking:{b.id}"
-                            )
-                        )
-                    if action_buttons:
-                        buttons.append(action_buttons)
+        from utils.booking_display import render_bookings_text, build_bookings_keyboard
+        
+        if not bookings:
+            text = "📋 <b>Мои брони</b>\n\nУ вас пока нет бронирований."
+            # No inline keyboard here, just send text (main menu is persistent)
+            await message.answer(text, reply_markup=get_main_menu(), parse_mode="HTML")
+            return
             
-            # Add clear history button if there are any completed/cancelled bookings
-            has_old_bookings = any(b.status in ["COMPLETED", "CANCELLED", "NO_SHOW"] for b in bookings)
-            if has_old_bookings:
-                from aiogram.types import InlineKeyboardButton
-                buttons.append([InlineKeyboardButton(text="🗑 Очистить историю", callback_data="clear_history")])
-            
-            # Add back button
-            from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
-            buttons.append([InlineKeyboardButton(text="« Назад", callback_data="back_main")])
-            keyboard = InlineKeyboardMarkup(inline_keyboard=buttons)
+        text = render_bookings_text(bookings)
+        keyboard = build_bookings_keyboard(bookings)
         
         await message.answer(
             text,
@@ -605,70 +555,14 @@ async def cancel_booking(callback: CallbackQuery):
         )
         bookings = result.scalars().all()
         
+        from utils.booking_display import render_bookings_text, build_bookings_keyboard
+        
         if not bookings:
             text = "📋 <b>Мои брони</b>\n\nУ вас пока нет бронирований."
             keyboard = get_main_menu()
         else:
-            text = "📋 <b>Мои брони</b>\n\n"
-            buttons = []
-            
-            for b in bookings:
-                club = b.club  # ✅ Already loaded
-                
-                if b.status == "CONFIRMED":
-                    status_emoji = "🟡"
-                    status_text = "Ожидает"
-                elif b.status == "ACTIVE":
-                    status_emoji = "🟢"
-                    status_text = "Играет"
-                elif b.status == "COMPLETED":
-                    status_emoji = "✅"
-                    status_text = "Завершено"
-                elif b.status == "NO_SHOW":
-                    status_emoji = "❌"
-                    status_text = "Не пришел"
-                elif b.status == "CANCELLED":
-                    status_emoji = "❌"
-                    status_text = "Отменено"
-                else:
-                    status_emoji = "⏳"
-                    status_text = b.status
-                
-                from datetime import timezone, timedelta
-                tz = timezone(timedelta(hours=5))
-                text += f"{status_emoji} <b>{b.computer_name}</b> в {club.name}\n"
-                text += f"  {b.start_time.astimezone(tz).strftime('%d.%m %H:%M')} - {b.end_time.astimezone(tz).strftime('%H:%M')}\n"
-                text += f"  Статус: {status_text}\n\n"
-                
-                if b.status in ["CONFIRMED", "ACTIVE"]:
-                    from aiogram.types import InlineKeyboardButton
-                    action_buttons = []
-                    if getattr(b, "confirmation_code", None):
-                        action_buttons.append(
-                            InlineKeyboardButton(
-                                text=f"🎟 Показать код",
-                                callback_data=f"show_code:{b.id}"
-                            )
-                        )
-                    if b.status == "CONFIRMED":
-                        action_buttons.append(
-                            InlineKeyboardButton(
-                                text=f"❌ Отменить",
-                                callback_data=f"cancel_booking:{b.id}"
-                            )
-                        )
-                    if action_buttons:
-                        buttons.append(action_buttons)
-            
-            # Add clear history button
-            has_old_bookings = any(b.status in ["COMPLETED", "CANCELLED", "NO_SHOW"] for b in bookings)
-            if has_old_bookings:
-                from aiogram.types import InlineKeyboardButton
-                buttons.append([InlineKeyboardButton(text="🗑 Очистить историю", callback_data="clear_history")])
-            
-            from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
-            buttons.append([InlineKeyboardButton(text="« Назад", callback_data="back_main")])
-            keyboard = InlineKeyboardMarkup(inline_keyboard=buttons)
+            text = render_bookings_text(bookings)
+            keyboard = build_bookings_keyboard(bookings)
         
         await callback.message.edit_text(
             text,
@@ -721,53 +615,14 @@ async def clear_history(callback: CallbackQuery):
         )
         bookings = result.scalars().all()
         
+        from utils.booking_display import render_bookings_text, build_bookings_keyboard
+        
         if not bookings:
             text = "📋 <b>Мои брони</b>\n\nУ вас пока нет бронирований."
             keyboard = get_main_menu()
         else:
-            text = "📋 <b>Мои брони</b>\n\n"
-            buttons = []
-            
-            for b in bookings:
-                club = b.club  # ✅ Already loaded
-                
-                if b.status == "CONFIRMED":
-                    status_emoji = "🟡"
-                    status_text = "Ожидает"
-                elif b.status == "ACTIVE":
-                    status_emoji = "🟢"
-                    status_text = "Играет"
-                elif b.status == "COMPLETED":
-                    status_emoji = "✅"
-                    status_text = "Завершено"
-                elif b.status == "NO_SHOW":
-                    status_emoji = "❌"
-                    status_text = "Не пришел"
-                elif b.status == "CANCELLED":
-                    status_emoji = "❌"
-                    status_text = "Отменено"
-                else:
-                    status_emoji = "⏳"
-                    status_text = b.status
-                
-                from datetime import timezone, timedelta
-                tz = timezone(timedelta(hours=5))
-                text += f"{status_emoji} <b>{b.computer_name}</b> в {club.name}\n"
-                text += f"  {b.start_time.astimezone(tz).strftime('%d.%m %H:%M')} - {b.end_time.astimezone(tz).strftime('%H:%M')}\n"
-                text += f"  Статус: {status_text}\n\n"
-                
-                if b.status == "CONFIRMED":
-                    from aiogram.types import InlineKeyboardButton
-                    buttons.append([
-                        InlineKeyboardButton(
-                            text=f"❌ Отменить {b.computer_name} ({b.start_time.astimezone(tz).strftime('%d.%m %H:%M')})",
-                            callback_data=f"cancel_booking:{b.id}"
-                        )
-                    ])
-            
-            from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
-            buttons.append([InlineKeyboardButton(text="« Назад", callback_data="back_main")])
-            keyboard = InlineKeyboardMarkup(inline_keyboard=buttons)
+            text = render_bookings_text(bookings)
+            keyboard = build_bookings_keyboard(bookings)
         
         await callback.message.edit_text(
             text,

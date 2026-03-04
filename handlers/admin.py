@@ -110,20 +110,27 @@ async def show_stats(callback: CallbackQuery):
             select(func.count(Booking.id)).where(Booking.created_at >= week_start)
         )
 
-        # --- Weekly Revenue estimate ---
-        week_result = await session.execute(
-            select(Booking).where(
-                and_(Booking.created_at >= week_start, Booking.status.in_(["COMPLETED", "ACTIVE", "CONFIRMED"]))
+        # --- Weekly Revenue — Single JOIN query (no N+1) ---
+        from sqlalchemy import case
+        week_revenue_result = await session.execute(
+            select(
+                func.sum(
+                    Computer.price_per_hour * (
+                        func.julianday(Booking.end_time) - func.julianday(Booking.start_time)
+                    ) * 24
+                ).label("revenue")
+            )
+            .select_from(Booking)
+            .join(Computer, Booking.item_id == Computer.id, isouter=True)
+            .where(
+                and_(
+                    Booking.created_at >= week_start,
+                    Booking.status.in_(["COMPLETED", "ACTIVE", "CONFIRMED"]),
+                    Computer.price_per_hour.isnot(None)
+                )
             )
         )
-        week_bs = week_result.scalars().all()
-        revenue = 0
-        for b in week_bs:
-            if b.item_id:
-                pc = await session.get(Computer, b.item_id)
-                if pc and pc.price_per_hour:
-                    duration_h = (b.end_time - b.start_time).total_seconds() / 3600
-                    revenue += int(pc.price_per_hour * duration_h)
+        revenue = int(week_revenue_result.scalar() or 0)
 
         # --- Reviews ---
         reviews_count = await session.scalar(select(func.count(Review.id)))
@@ -142,36 +149,44 @@ async def show_stats(callback: CallbackQuery):
             [f"  {i+1}. {row.computer_name} — {row.cnt} броней" for i, row in enumerate(top_pcs)]
         ) or "  Нет данных"
 
-        # --- Per-Club daily revenue breakdown ---
-        all_clubs_result = await session.execute(select(Club).where(Club.is_active == True))
-        all_clubs = all_clubs_result.scalars().all()
-        
-        per_club_lines = []
-        for club in all_clubs:
-            club_today_result = await session.execute(
-                select(Booking).where(
-                    and_(
-                        Booking.club_id == club.id,
-                        Booking.created_at >= today_start,
-                        Booking.status.in_(["CONFIRMED", "ACTIVE", "COMPLETED"])
-                    )
+        # --- Per-Club daily revenue — Single JOIN query per club (much better than N+1) ---
+        per_club_result = await session.execute(
+            select(
+                Club.id,
+                Club.name,
+                func.count(Booking.id).label("today_count"),
+                func.sum(
+                    Computer.price_per_hour * (
+                        func.julianday(Booking.end_time) - func.julianday(Booking.start_time)
+                    ) * 24
+                ).label("today_revenue")
+            )
+            .select_from(Club)
+            .outerjoin(
+                Booking,
+                and_(
+                    Booking.club_id == Club.id,
+                    Booking.created_at >= today_start,
+                    Booking.status.in_(["CONFIRMED", "ACTIVE", "COMPLETED"])
                 )
             )
-            club_today_bookings = club_today_result.scalars().all()
-            club_today_revenue = 0
-            for b in club_today_bookings:
-                if b.item_id:
-                    pc = await session.get(Computer, b.item_id)
-                    if pc and pc.price_per_hour:
-                        duration_h = (b.end_time - b.start_time).total_seconds() / 3600
-                        club_today_revenue += int(pc.price_per_hour * duration_h)
-            if club_today_bookings or True:  # Show all clubs always for demo
-                per_club_lines.append(
-                    f"  🏢 <b>{club.name}</b>: {len(club_today_bookings)} броней"
-                    + (f" (~{club_today_revenue:,} сум)" if club_today_revenue > 0 else "")
-                )
-        
+            .outerjoin(Computer, Booking.item_id == Computer.id)
+            .where(Club.is_active == True)
+            .group_by(Club.id, Club.name)
+        )
+        per_club_rows = per_club_result.all()
+
+        per_club_lines = []
+        for row in per_club_rows:
+            rev = int(row.today_revenue or 0)
+            cnt = row.today_count or 0
+            line = f"  🏢 <b>{row.name}</b>: {cnt} броней"
+            if rev > 0:
+                line += f" (~{rev:,} сум)"
+            per_club_lines.append(line)
+
         per_club_text = "\n".join(per_club_lines) if per_club_lines else "  Нет клубов"
+
 
     text = (
         f"📊 <b>Статистика платформы</b>\n\n"
