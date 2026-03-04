@@ -216,15 +216,6 @@ async def main():
     asyncio.create_task(cleanup_old_logs())  # Delete log files older than 7 days
     asyncio.create_task(keep_awake())        # Prevent Render from sleeping
 
-    # Start FastAPI server in background
-    async def start_server():
-        port = int(os.getenv("PORT", 8000))
-        config = uvicorn.Config(fastapi_app, host="0.0.0.0", port=port, log_level="info")
-        server = uvicorn.Server(config)
-        await server.serve()
-    
-    asyncio.create_task(start_server())
-    
     logger.info("Bot is starting...")
     
     # Set bot commands
@@ -240,7 +231,17 @@ async def main():
         BotCommand(command="admin", description="🔐 Админ-панель")
     ])
     
-    await dp.start_polling(bot)
+    # Run uvicorn HTTP server AND Telegram polling CONCURRENTLY
+    # This is critical: uvicorn MUST start alongside polling so Render's
+    # health check can reach the HTTP port within the timeout window.
+    port = int(os.getenv("PORT", 8000))
+    config = uvicorn.Config(fastapi_app, host="0.0.0.0", port=port, log_level="info")
+    server = uvicorn.Server(config)
+
+    await asyncio.gather(
+        server.serve(),
+        dp.start_polling(bot),
+    )
 
 if __name__ == "__main__":
     # Safety warning when running locally (not on Render)
@@ -249,3 +250,4 @@ if __name__ == "__main__":
         print("   running locally will cause a TelegramConflictError.")
         print("   Use a DIFFERENT token in .env for local development.\n")
     asyncio.run(main())
+
