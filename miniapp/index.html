@@ -21,7 +21,9 @@
 
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-    <link rel="stylesheet" href="style.css?v=99">
+    <!-- i18n must load BEFORE app.js -->
+    <script src="i18n.js?v=1"></script>
+    <link rel="stylesheet" href="style.css?v=100">
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
 
     <!-- PWA: Service Worker Registration (auto-updates) -->
@@ -31,12 +33,10 @@
                 navigator.serviceWorker.register('/miniapp/service-worker.js', { scope: '/miniapp/' })
                     .then(reg => {
                         console.log('[PWA] Service Worker registered:', reg.scope);
-                        // Auto-update: check for new version every time app opens
                         reg.addEventListener('updatefound', () => {
                             const newWorker = reg.installing;
                             newWorker.addEventListener('statechange', () => {
                                 if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                                    // New version available — reload silently
                                     console.log('[PWA] New version available, updating...');
                                     window.location.reload();
                                 }
@@ -55,7 +55,7 @@
     <!-- Full-screen Loading Overlay -->
     <div id="loading-overlay" class="loading-overlay" style="display: flex;">
         <div class="spinner"></div>
-        <p style="margin-top: 15px; font-weight: 600; color: var(--primary);">Загрузка...</p>
+        <p style="margin-top: 15px; font-weight: 600; color: var(--primary);" data-i18n="loading">Загрузка...</p>
     </div>
 
     <!-- Standalone PWA Auth Screen -->
@@ -63,36 +63,48 @@
         <div class="auth-card">
             <img src="icon-192.png" alt="Digital Arena Logo" class="auth-logo">
             <h2>Digital Arena</h2>
-            <p>Введите номер телефона и код из бота</p>
+            <p data-i18n="auth_subtitle">Введите номер телефона и код из бота</p>
 
             <div class="auth-form">
-                <input type="tel" id="auth-phone" class="auth-input" placeholder="+998901234567" autocomplete="tel">
-                <input type="text" id="auth-code" class="auth-input" placeholder="Код из бота (6 цифр)" maxlength="6"
-                    inputmode="numeric" autocomplete="one-time-code">
-                <button id="auth-submit-btn" class="auth-btn" onclick="submitPhoneCode()">🔐 Войти</button>
+                <input type="tel" id="auth-phone" class="auth-input" data-i18n-placeholder="auth_phone_placeholder"
+                    placeholder="+998901234567" autocomplete="tel">
+                <input type="text" id="auth-code" class="auth-input" data-i18n-placeholder="auth_code_placeholder"
+                    placeholder="Код из бота (6 цифр)" maxlength="6" inputmode="numeric" autocomplete="one-time-code">
+                <button id="auth-submit-btn" class="auth-btn" onclick="submitPhoneCode()">🔐 <span
+                        data-i18n="auth_btn">Войти</span></button>
                 <p id="auth-error" class="auth-error" style="display:none;"></p>
             </div>
 
             <p class="auth-hint">
-                Нет кода? Нажмите <b>«📱 Приложение»</b> в боте.
+                <span data-i18n="auth_no_code">Нет кода? Нажмите</span> <b data-i18n="auth_bot_btn">«📱 Приложение»</b>
+                <span data-i18n="auth_in_bot">в боте.</span>
             </p>
 
             <button id="pwa-install-btn" class="auth-btn"
                 style="display: none; background: linear-gradient(135deg, #10b981, #059669); margin-top: 15px;"
                 onclick="installPWA()">
-                📥 Установить Приложение
+                <span data-i18n="auth_install_btn">📥 Установить Приложение</span>
             </button>
-            <p class="auth-hint" style="font-size: 11px; opacity: 0.7; margin-top: 5px;">
+            <p class="auth-hint" style="font-size: 11px; opacity: 0.7; margin-top: 5px;" data-i18n="auth_ios_hint">
                 Для iOS: нажмите «Поделиться» ➡️ «На экран Домой»
             </p>
+
+            <!-- Language switcher on auth screen -->
+            <div class="lang-switcher" style="margin-top: 20px;">
+                <button class="lang-btn active" data-lang="ru" onclick="setLanguage('ru')">🇷🇺 РУС</button>
+                <button class="lang-btn" data-lang="uz" onclick="setLanguage('uz')">🇺🇿 UZ</button>
+                <button class="lang-btn" data-lang="en" onclick="setLanguage('en')">🇬🇧 EN</button>
+            </div>
         </div>
     </div>
+
+    <!-- Clubs Tab -->
     <div class="container" id="tab-clubs">
         <!-- Club Info Header -->
         <div class="header">
-            <h2 id="club-name">Загрузка...</h2>
+            <h2 id="club-name" data-i18n="loading">Загрузка...</h2>
             <p id="club-address">
-                <span class="change-club-link" onclick="goBackToClubs()">(Сменить)</span>
+                <span class="change-club-link" onclick="goBackToClubs()" data-i18n="change_club">(Сменить)</span>
             </p>
         </div>
 
@@ -110,20 +122,108 @@
     <!-- My Bookings Tab Panel -->
     <div class="container hidden" id="tab-bookings">
         <div class="header">
-            <h2>📅 Мои Брони</h2>
+            <h2 data-i18n="my_bookings">📅 Мои Брони</h2>
         </div>
         <div id="my-bookings-tab-list" style="padding: 16px;">
-            <p style="text-align:center;color:rgba(255,255,255,0.4)">Загрузка...</p>
+            <p style="text-align:center;color:rgba(255,255,255,0.4)" data-i18n="loading">Загрузка...</p>
         </div>
     </div>
 
     <!-- Profile Tab Panel -->
     <div class="container hidden" id="tab-profile">
         <div class="header">
-            <h2>👤 Профиль</h2>
+            <h2 data-i18n="profile_title">👤 Профиль</h2>
         </div>
         <div id="profile-content" style="padding:16px; display:flex; flex-direction:column; gap:16px;">
             <!-- Injected by JS -->
+        </div>
+        <!-- Language switcher in profile -->
+        <div style="padding: 0 16px 16px;">
+            <div class="info-section-card">
+                <div class="info-section-title" data-i18n="language_label">Язык / Language / Til</div>
+                <div class="lang-switcher" style="margin-top: 12px;">
+                    <button class="lang-btn" data-lang="ru" onclick="setLanguage('ru')">🇷🇺 Русский</button>
+                    <button class="lang-btn" data-lang="uz" onclick="setLanguage('uz')">🇺🇿 O'zbek</button>
+                    <button class="lang-btn" data-lang="en" onclick="setLanguage('en')">🇬🇧 English</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Info Tab Panel -->
+    <div class="container hidden" id="tab-info">
+        <div class="header">
+            <h2 data-i18n="info_title">ℹ️ О нас</h2>
+        </div>
+        <div style="padding: 0 4px 100px; display: flex; flex-direction: column; gap: 16px;">
+
+            <!-- About Us -->
+            <div class="info-section-card">
+                <div class="info-section-icon">🎮</div>
+                <div class="info-section-title" data-i18n="info_who_title">Кто мы?</div>
+                <p class="info-section-text" data-i18n="info_who_text">
+                    Digital Arena — современная платформа для онлайн-бронирования мест в компьютерных клубах
+                    Узбекистана.
+                </p>
+            </div>
+
+            <!-- Contact -->
+            <div class="info-section-card">
+                <div class="info-section-icon">📞</div>
+                <div class="info-section-title" data-i18n="info_contact_title">Контакты</div>
+                <a href="tel:+998901234567" class="info-contact-link" data-i18n="info_phone">+998 90 123 45 67</a>
+                <a href="https://t.me/ArenaSlotBot" class="info-contact-link" target="_blank"
+                    data-i18n="info_telegram">Телеграм-бот: @ArenaSlotBot</a>
+            </div>
+
+            <!-- Demo Video -->
+            <div class="info-section-card">
+                <div class="info-section-icon">🎬</div>
+                <div class="info-section-title" data-i18n="info_how_title">Как бронировать?</div>
+                <p class="info-section-text" data-i18n="info_how_text">
+                    Посмотрите короткое видео ниже, чтобы узнать, как забронировать место за 1 минуту.
+                </p>
+                <!-- YouTube demo video embed — replace VIDEO_ID with real ID when available -->
+                <div class="info-video-wrapper">
+                    <iframe src="https://www.youtube.com/embed/dQw4w9WgXcQ" title="Digital Arena — How to Book"
+                        frameborder="0"
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                        allowfullscreen loading="lazy">
+                    </iframe>
+                </div>
+            </div>
+
+            <!-- How-to steps -->
+            <div class="info-section-card">
+                <div class="info-section-title">📋 Шаги бронирования</div>
+                <div class="how-to-steps">
+                    <div class="how-to-step">
+                        <div class="how-to-num">1</div>
+                        <div>Откройте <a href="https://t.me/ArenaSlotBot" style="color:var(--primary)">@ArenaSlotBot</a>
+                            в Telegram</div>
+                    </div>
+                    <div class="how-to-step">
+                        <div class="how-to-num">2</div>
+                        <div>Нажмите «📱 Приложение» → получите 6-значный код</div>
+                    </div>
+                    <div class="how-to-step">
+                        <div class="how-to-num">3</div>
+                        <div>Введите номер телефона и код на этом сайте</div>
+                    </div>
+                    <div class="how-to-step">
+                        <div class="how-to-num">4</div>
+                        <div>Выберите клуб → компьютер → время → «Забронировать»</div>
+                    </div>
+                    <div class="how-to-step">
+                        <div class="how-to-num">5</div>
+                        <div>QR-код придёт вам. Покажите его на входе в клуб ✅</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Version -->
+            <p style="text-align:center; opacity:0.4; font-size:12px;" data-i18n="info_version">Версия приложения: 1.0
+            </p>
         </div>
     </div>
 
@@ -131,15 +231,19 @@
     <nav class="bottom-nav">
         <button class="bottom-nav-btn active" id="nav-clubs" onclick="switchTab('clubs')">
             <span class="bottom-nav-icon">🎮</span>
-            <span class="bottom-nav-label">Клубы</span>
+            <span class="bottom-nav-label" data-i18n="nav_clubs">Клубы</span>
         </button>
         <button class="bottom-nav-btn" id="nav-bookings" onclick="switchTab('bookings')">
             <span class="bottom-nav-icon">📅</span>
-            <span class="bottom-nav-label">Брони</span>
+            <span class="bottom-nav-label" data-i18n="nav_bookings">Брони</span>
         </button>
         <button class="bottom-nav-btn" id="nav-profile" onclick="switchTab('profile')">
             <span class="bottom-nav-icon">👤</span>
-            <span class="bottom-nav-label">Профиль</span>
+            <span class="bottom-nav-label" data-i18n="nav_profile">Профиль</span>
+        </button>
+        <button class="bottom-nav-btn" id="nav-info" onclick="switchTab('info')">
+            <span class="bottom-nav-icon">ℹ️</span>
+            <span class="bottom-nav-label" data-i18n="nav_info">Инфо</span>
         </button>
     </nav>
 
@@ -147,7 +251,7 @@
     <div id="booking-modal" class="modal" style="display: none;">
         <div class="modal-content">
             <div class="modal-header">
-                <h3>Бронирование</h3>
+                <h3 data-i18n="booking_title">Бронирование</h3>
                 <button class="close-btn" onclick="closeBookingModal()">✕</button>
             </div>
 
@@ -156,18 +260,18 @@
 
                 <!-- Date Tabs -->
                 <div class="date-tabs">
-                    <button class="date-tab active" onclick="selectDate(0, this)">Сегодня</button>
-                    <button class="date-tab" onclick="selectDate(1, this)">Завтра</button>
+                    <button class="date-tab active" onclick="selectDate(0, this)" data-i18n="today">Сегодня</button>
+                    <button class="date-tab" onclick="selectDate(1, this)" data-i18n="tomorrow">Завтра</button>
                 </div>
 
                 <!-- Time Grid -->
-                <div class="section-title">Время начала</div>
+                <div class="section-title" data-i18n="start_time">Время начала</div>
                 <div class="time-grid" id="time-grid">
                     <!-- Time slots injected by JS -->
                 </div>
 
                 <!-- Duration -->
-                <div class="section-title">Длительность</div>
+                <div class="section-title" data-i18n="duration">Длительность</div>
                 <div class="duration-selector">
                     <button class="duration-btn" onclick="adjustDuration(-30)">-</button>
                     <span id="duration-display">1 ч 00 мин</span>
@@ -176,11 +280,11 @@
 
                 <!-- Total Price -->
                 <div class="total-price-section">
-                    <span>Итого:</span>
+                    <span data-i18n="total">Итого:</span>
                     <span class="total-price" id="total-price">0 сум</span>
                 </div>
 
-                <button class="confirm-btn" id="confirm-booking-btn" onclick="confirmBooking()">
+                <button class="confirm-btn" id="confirm-booking-btn" onclick="confirmBooking()" data-i18n="book_btn">
                     ЗАБРОНИРОВАТЬ
                 </button>
             </div>
@@ -191,12 +295,12 @@
     <div id="my-bookings-modal" class="modal" style="display: none;">
         <div class="modal-content">
             <div class="modal-header">
-                <h3>📅 Мои Брони</h3>
+                <h3 data-i18n="my_bookings">📅 Мои Брони</h3>
                 <button class="close-btn" onclick="closeMyBookings()">✕</button>
             </div>
             <div id="my-bookings-list" class="bookings-list">
                 <!-- Bookings injected by JS -->
-                <div class="empty-state-small">
+                <div class="empty-state-small" data-i18n="loading">
                     Загрузка...
                 </div>
             </div>
@@ -208,7 +312,7 @@
         <div class="modal-content"
             style="border-radius: 24px; text-align: center; max-width: 320px; padding: 30px 20px;">
             <div class="modal-header" style="justify-content: center; position: relative;">
-                <h3>Ваш код</h3>
+                <h3 data-i18n="your_code">Ваш код</h3>
                 <button class="close-btn" onclick="closeQRModal()"
                     style="position: absolute; right: -10px; top: -10px;">✕</button>
             </div>
@@ -221,7 +325,8 @@
             <p id="qr-code-text"
                 style="font-size: 24px; font-weight: 700; letter-spacing: 2px; color: var(--primary); font-family: monospace;">
                 XXXXXX</p>
-            <p style="font-size: 13px; color: rgba(255,255,255,0.6); margin-top: 10px;">Покажите код администратору</p>
+            <p style="font-size: 13px; color: rgba(255,255,255,0.6); margin-top: 10px;" data-i18n="show_code">Покажите
+                код администратору</p>
         </div>
     </div>
 
@@ -239,7 +344,8 @@
             <div class="info-header">
                 <div class="info-title">
                     <h3 id="selected-name">Select PC</h3>
-                    <div class="computer-status" style="font-size: 12px; color: var(--success);">● Свободен</div>
+                    <div class="computer-status" style="font-size: 12px; color: var(--success);">● <span
+                            data-i18n="free">Свободен</span></div>
                 </div>
                 <div class="price-tag" id="selected-price">
                     0 UZS/ч
@@ -252,7 +358,7 @@
         </div>
     </div>
 
-    <script src="app.js?v=114"></script>
+    <script src="app.js?v=115"></script>
 </body>
 
 </html>

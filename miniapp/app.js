@@ -89,43 +89,6 @@ async function submitPhoneCode() {
     }
 }
 
-
-try {
-    const res = await fetch(`${API_BASE_URL}/auth/verify-code`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone, code })
-    });
-
-    if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.detail || 'Неверный код');
-    }
-
-    const data = await res.json();
-
-    // Save session
-    localStorage.setItem('session_token', data.session_token);
-    localStorage.setItem('session_user', JSON.stringify({
-        id: data.user_id,
-        first_name: data.full_name || 'User',
-        phone: data.phone
-    }));
-
-    // Trigger success feedback if available
-    haptic('success');
-
-    // Reload the page to transition out of the auth screen and init the Main App
-    window.location.reload();
-
-} catch (e) {
-    errEl.textContent = e.message;
-    errEl.style.display = 'block';
-    btn.disabled = false;
-    btn.textContent = '🔐 Войти';
-}
-}
-
 // ==================== PWA INSTALLATION ====================
 let deferredPrompt;
 
