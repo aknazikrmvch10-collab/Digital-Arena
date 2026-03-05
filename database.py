@@ -74,6 +74,9 @@ async def init_db():
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             paid_at TIMESTAMP
         )"""),
+        # Wave 6: Password-based auth (multi-device login)
+        ("ALTER TABLE users ADD COLUMN IF NOT EXISTS password_hash VARCHAR",
+         "ALTER TABLE users ADD COLUMN password_hash VARCHAR"),
     ]
 
     # Wave 5: Seed default Tashkent coordinates for clubs that have none

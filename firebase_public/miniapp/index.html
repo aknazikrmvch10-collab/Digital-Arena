@@ -65,31 +65,56 @@
         <div class="auth-card">
             <img src="icon-192.png" alt="Digital Arena Logo" class="auth-logo">
             <h2>Digital Arena</h2>
-            <p data-i18n="auth_subtitle">Введите номер телефона и код из бота</p>
 
-            <div class="auth-form">
-                <input type="tel" id="auth-phone" class="auth-input" data-i18n-placeholder="auth_phone_placeholder"
-                    placeholder="+998901234567" autocomplete="tel">
-                <input type="text" id="auth-code" class="auth-input" data-i18n-placeholder="auth_code_placeholder"
-                    placeholder="Код из бота (6 цифр)" maxlength="6" inputmode="numeric" autocomplete="one-time-code">
-                <button id="auth-submit-btn" class="auth-btn" onclick="submitPhoneCode()">🔐 <span
-                        data-i18n="auth_btn">Войти</span></button>
-                <p id="auth-error" class="auth-error" style="display:none;"></p>
+            <!-- Auth mode tabs -->
+            <div class="auth-tabs" style="display:flex; gap:6px; margin-bottom:18px;">
+                <button class="auth-tab active" id="tab-otp" onclick="switchAuthTab('otp')">🔑 Код из бота</button>
+                <button class="auth-tab" id="tab-login" onclick="switchAuthTab('login')">🔐 Пароль</button>
+                <button class="auth-tab" id="tab-register" onclick="switchAuthTab('register')">✏️ Регистрация</button>
             </div>
 
-            <p class="auth-hint">
-                <span data-i18n="auth_no_code">Нет кода? Нажмите</span> <b data-i18n="auth_bot_btn">«📱 Приложение»</b>
-                <span data-i18n="auth_in_bot">в боте.</span>
+            <!-- OTP Tab -->
+            <div id="auth-panel-otp" class="auth-form">
+                <p style="font-size:13px;opacity:0.7;margin-bottom:10px;">Введите номер телефона и код из Telegram-бота
+                </p>
+                <input type="tel" id="auth-phone" class="auth-input" placeholder="+998901234567" autocomplete="tel">
+                <input type="text" id="auth-code" class="auth-input" placeholder="Код из бота (6 цифр)" maxlength="6"
+                    inputmode="numeric">
+                <button id="auth-submit-btn" class="auth-btn" onclick="submitPhoneCode()">🔐 Войти</button>
+            </div>
+
+            <!-- Password Login Tab -->
+            <div id="auth-panel-login" class="auth-form" style="display:none;">
+                <p style="font-size:13px;opacity:0.7;margin-bottom:10px;">Войдите с любого устройства</p>
+                <input type="tel" id="login-phone" class="auth-input" placeholder="+998901234567" autocomplete="tel">
+                <input type="password" id="login-password" class="auth-input" placeholder="Пароль"
+                    autocomplete="current-password">
+                <button class="auth-btn" onclick="submitPasswordLogin()">🔓 Войти</button>
+            </div>
+
+            <!-- Register Tab -->
+            <div id="auth-panel-register" class="auth-form" style="display:none;">
+                <p style="font-size:13px;opacity:0.7;margin-bottom:10px;">Создайте аккаунт для входа с любого устройства
+                </p>
+                <input type="text" id="reg-name" class="auth-input" placeholder="Ваше имя" autocomplete="name">
+                <input type="tel" id="reg-phone" class="auth-input" placeholder="+998901234567" autocomplete="tel">
+                <input type="password" id="reg-password" class="auth-input" placeholder="Пароль (минимум 6 символов)"
+                    autocomplete="new-password">
+                <input type="password" id="reg-password2" class="auth-input" placeholder="Повторите пароль"
+                    autocomplete="new-password">
+                <button class="auth-btn" style="background:linear-gradient(135deg,#10b981,#059669);"
+                    onclick="submitRegister()">✅ Создать аккаунт</button>
+            </div>
+
+            <p id="auth-error" class="auth-error" style="display:none;"></p>
+
+            <p class="auth-hint" style="font-size:11px;opacity:0.5;margin-top:8px;">
+                Код из бота: нажмите «📱 Приложение» в @DigitalArenaBot
             </p>
 
             <button id="pwa-install-btn" class="auth-btn"
-                style="display: none; background: linear-gradient(135deg, #10b981, #059669); margin-top: 15px;"
-                onclick="installPWA()">
-                <span data-i18n="auth_install_btn">📥 Установить Приложение</span>
-            </button>
-            <p class="auth-hint" style="font-size: 11px; opacity: 0.7; margin-top: 5px;" data-i18n="auth_ios_hint">
-                Для iOS: нажмите «Поделиться» ➡️ «На экран Домой»
-            </p>
+                style="display: none; background: linear-gradient(135deg, #10b981, #059669); margin-top: 12px;"
+                onclick="installPWA()">📥 Установить Приложение</button>
 
             <!-- Language switcher on auth screen -->
             <div class="lang-switcher" style="margin-top: 20px;">
@@ -99,6 +124,7 @@
             </div>
         </div>
     </div>
+
 
     <!-- Clubs Tab -->
     <div class="container" id="tab-clubs">

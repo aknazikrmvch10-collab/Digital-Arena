@@ -28,6 +28,9 @@ class User(Base):
     referred_by = Column(Integer, ForeignKey("users.id"), nullable=True)
     referral_bonus_used = Column(Boolean, default=False)
 
+    # Password-based auth (for multi-device login without Telegram)
+    password_hash = Column(String, nullable=True)
+
     bookings = relationship("Booking", back_populates="user")
     reviews = relationship("Review", foreign_keys="Review.user_id", back_populates="user")
 

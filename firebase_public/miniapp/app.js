@@ -89,6 +89,102 @@ async function submitPhoneCode() {
     }
 }
 
+// Switch between OTP / Password / Register tabs on auth screen
+function switchAuthTab(tab) {
+    ['otp', 'login', 'register'].forEach(t => {
+        const panel = document.getElementById(`auth-panel-${t}`);
+        const tabBtn = document.getElementById(`tab-${t}`);
+        if (panel) panel.style.display = (t === tab) ? 'flex' : 'none';
+        if (tabBtn) tabBtn.classList.toggle('active', t === tab);
+    });
+    const errEl = document.getElementById('auth-error');
+    if (errEl) errEl.style.display = 'none';
+}
+
+// Login with phone + password
+async function submitPasswordLogin() {
+    const phone = document.getElementById('login-phone').value.trim();
+    const password = document.getElementById('login-password').value.trim();
+    const errEl = document.getElementById('auth-error');
+    errEl.style.display = 'none';
+
+    if (!phone || !password) {
+        errEl.textContent = 'Введите номер телефона и пароль';
+        errEl.style.display = 'block';
+        return;
+    }
+
+    try {
+        const res = await fetch(`${API_BASE_URL}/auth/login-password`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ phone, password })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || 'Ошибка входа');
+
+        localStorage.setItem('session_token', data.session_token);
+        localStorage.setItem('session_user', JSON.stringify({
+            id: data.user_id,
+            first_name: data.full_name || 'User',
+            phone: data.phone
+        }));
+        haptic('success');
+        window.location.reload();
+    } catch (e) {
+        errEl.textContent = e.message;
+        errEl.style.display = 'block';
+    }
+}
+
+// Register a new account
+async function submitRegister() {
+    const name = document.getElementById('reg-name').value.trim();
+    const phone = document.getElementById('reg-phone').value.trim();
+    const password = document.getElementById('reg-password').value.trim();
+    const password2 = document.getElementById('reg-password2').value.trim();
+    const errEl = document.getElementById('auth-error');
+    errEl.style.display = 'none';
+
+    if (!name || !phone || !password) {
+        errEl.textContent = 'Заполните все поля';
+        errEl.style.display = 'block';
+        return;
+    }
+    if (password.length < 6) {
+        errEl.textContent = 'Пароль должен быть минимум 6 символов';
+        errEl.style.display = 'block';
+        return;
+    }
+    if (password !== password2) {
+        errEl.textContent = 'Пароли не совпадают';
+        errEl.style.display = 'block';
+        return;
+    }
+
+    try {
+        const res = await fetch(`${API_BASE_URL}/auth/register`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ full_name: name, phone, password })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || 'Ошибка регистрации');
+
+        localStorage.setItem('session_token', data.session_token);
+        localStorage.setItem('session_user', JSON.stringify({
+            id: data.user_id,
+            first_name: data.full_name || name,
+            phone: data.phone
+        }));
+        haptic('success');
+        window.location.reload();
+    } catch (e) {
+        errEl.textContent = e.message;
+        errEl.style.display = 'block';
+    }
+}
+
 // ==================== PWA INSTALLATION ====================
 let deferredPrompt;
 
@@ -924,8 +1020,8 @@ async function confirmBooking() {
             showToast(`✅ Бронь #${result.booking_id} создана!`, 'success');
             closeBookingModal();
             unselectComputer();
-
-            // Refresh logic? Maybe go to My Bookings
+            // Auto-navigate to My Bookings to show the new booking
+            setTimeout(() => switchTab('bookings'), 800);
         } else {
             showToast(result.message + (result.conflict ? '\nВремя занято!' : ''), 'error');
         }
@@ -1198,6 +1294,11 @@ function closeQRModal() {
 let currentTab = 'clubs';
 
 function switchTab(tab) {
+    // When leaving clubs tab — deselect computer and hide info panel
+    if (currentTab === 'clubs' && tab !== 'clubs') {
+        unselectComputer();
+    }
+
     // Hide all tab panels
     document.querySelectorAll('[id^="tab-"]').forEach(el => el.classList.add('hidden'));
     // Deactivate all nav buttons
@@ -1346,10 +1447,18 @@ async function setLanguageFromApp(lang) {
 
 // ==================== AUTH USER HELPER ====================
 function getAuthUser() {
+    // 1. Inside Telegram Mini App
     if (tg.initDataUnsafe && tg.initDataUnsafe.user) {
         return tg.initDataUnsafe.user;
-    } else if (_standaloneAuthData) {
-        return _standaloneAuthData;
+    }
+    // 2. Standalone PWA — session stored in localStorage
+    if (_sessionAuthData) {
+        return _sessionAuthData;
+    }
+    // 3. Fallback: read directly from localStorage
+    const raw = localStorage.getItem('session_user');
+    if (raw) {
+        try { return JSON.parse(raw); } catch (e) { }
     }
     return null;
 }

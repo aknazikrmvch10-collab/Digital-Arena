@@ -145,6 +145,137 @@ async def app_logout(x_session_token: str = Header(None)):
     return {"success": True}
 
 
+class RegisterRequest(BaseModel):
+    full_name: str
+    phone: str
+    password: str   # plain text, will be hashed
+
+class LoginPasswordRequest(BaseModel):
+    phone: str
+    password: str
+
+
+@router.post("/auth/register")
+async def register_with_password(req: RegisterRequest):
+    """
+    Create a new account with name, phone, and password.
+    Works independently of Telegram — for multi-device login.
+    """
+    import hashlib, uuid
+
+    # Simple hash: sha256(password+salt). bcrypt not needed for this scale.
+    salt = str(uuid.uuid4())[:8]
+    pw_hash = hashlib.sha256(f"{req.password}{salt}".encode()).hexdigest()
+    password_hash = f"{salt}${pw_hash}"
+
+    phone = req.phone.strip()
+    if not phone.startswith("+"):
+        phone = "+" + phone
+
+    async with async_session_factory() as session:
+        # Check if phone already exists
+        existing = await session.execute(
+            select(User).where(User.phone == phone)
+        )
+        existing_user = existing.scalar_one_or_none()
+
+        if existing_user:
+            # If user exists but has no password, set it
+            if not existing_user.password_hash:
+                existing_user.password_hash = password_hash
+                existing_user.full_name = req.full_name or existing_user.full_name
+                await session.commit()
+                user_id = existing_user.id
+                full_name = existing_user.full_name
+            else:
+                raise HTTPException(status_code=400,
+                    detail="Аккаунт с таким номером уже существует. Войдите или используйте другой номер.")
+        else:
+            # Create new user
+            new_user = User(
+                full_name=req.full_name,
+                phone=phone,
+                password_hash=password_hash,
+                tg_id=None,
+            )
+            session.add(new_user)
+            await session.commit()
+            await session.refresh(new_user)
+            user_id = new_user.id
+            full_name = new_user.full_name
+
+        # Issue session token
+        from models import AppSession
+        token = str(uuid.uuid4())
+        app_session = AppSession(
+            user_id=user_id,
+            session_token=token,
+            phone=phone,
+            full_name=full_name,
+        )
+        session.add(app_session)
+        await session.commit()
+
+        return {
+            "success": True,
+            "session_token": token,
+            "user_id": user_id,
+            "full_name": full_name,
+            "phone": phone,
+        }
+
+
+@router.post("/auth/login-password")
+async def login_with_password(req: LoginPasswordRequest):
+    """
+    Login with phone + password.
+    Returns session_token compatible with existing session system.
+    """
+    import hashlib, uuid
+
+    phone = req.phone.strip()
+    if not phone.startswith("+"):
+        phone = "+" + phone
+
+    async with async_session_factory() as session:
+        result = await session.execute(
+            select(User).where(User.phone == phone)
+        )
+        user = result.scalar_one_or_none()
+
+        if not user or not user.password_hash:
+            raise HTTPException(status_code=401,
+                detail="Аккаунт не найден. Сначала зарегистрируйтесь.")
+
+        # Verify password
+        salt, stored_hash = user.password_hash.split("$", 1)
+        input_hash = hashlib.sha256(f"{req.password}{salt}".encode()).hexdigest()
+
+        if input_hash != stored_hash:
+            raise HTTPException(status_code=401, detail="Неверный пароль")
+
+        # Issue session token
+        from models import AppSession
+        token = str(uuid.uuid4())
+        app_session = AppSession(
+            user_id=user.id,
+            session_token=token,
+            phone=phone,
+            full_name=user.full_name,
+        )
+        session.add(app_session)
+        await session.commit()
+
+        return {
+            "success": True,
+            "session_token": token,
+            "user_id": user.id,
+            "full_name": user.full_name,
+            "phone": phone,
+        }
+
+
+
 
 # --- Request Models ---
 class BookingRequest(BaseModel):
