@@ -70,11 +70,9 @@ async def verify_phone_code(req: PhoneCodeRequest):
     code = req.code.strip()
 
     async with async_session_factory() as session:
-        # Use utils.timezone.now_tashkent to match app_auth.py which creates the code
-        from utils.timezone import now_tashkent
-        now = now_tashkent()
-        # In SQLite, datetimes are stored naively, but since app_auth.py uses now_tashkent() 
-        # which returns a timezone aware object, we should compare aware-to-aware or naive-to-naive based on what DB returns
+        # Use naive UTC to match how we store expires_at in the DB
+        from utils.timezone import now_utc
+        now = now_utc()
         
         # Find a valid matching code
         result = await session.execute(

@@ -18,7 +18,7 @@ from aiogram.filters import Command
 
 from database import async_session_factory
 from models import AppAuthCode, User
-from utils.timezone import now_tashkent
+from utils.timezone import now_tashkent, now_utc
 from utils.logging import get_logger
 
 router = Router()
@@ -76,7 +76,8 @@ async def handle_contact(message: Message):
 
         tg_id = message.from_user.id
         code = _generate_code()
-        now = now_tashkent()
+        # IMPORTANT: Use naive UTC for DB storage (matches timezone.py convention)
+        now = now_utc()
         expires = now + timedelta(minutes=10)
 
         async with async_session_factory() as session:
