@@ -4,11 +4,14 @@ from typing import List, Optional
 import asyncio
 from sqlalchemy import select, and_, or_
 
-from .base import BaseDriver, ComputerSchema, ZoneSchema, BookingResult
+from drivers.base import BaseDriver, ComputerSchema, ZoneSchema, BookingResult
 from database import async_session_factory
 from models import Booking, User, Club, Computer
 import random
 import string
+
+# Statuses that block a time slot — both bot and PWA must respect both
+_BLOCKING_STATUSES = ["CONFIRMED", "ACTIVE"]
 
 class MockDriver(BaseDriver):
     """
@@ -23,15 +26,18 @@ class MockDriver(BaseDriver):
     async def get_computers(self) -> List[ComputerSchema]:
         # Simulate network delay
         await asyncio.sleep(0.1)
-        
+
         async with async_session_factory() as session:
-            # Check for conflicting bookings
-            now = now_tashkent()
+            # FIX: Use naive UTC (same as stored booking times) — NOT now_tashkent()
+            from utils.timezone import now_utc
+            now = now_utc()
+
+            # Check for currently-active bookings (CONFIRMED or ACTIVE from bot)
             result = await session.execute(
                 select(Booking).where(
                     and_(
                         Booking.club_id == self.club_id,
-                        Booking.status == "CONFIRMED",
+                        Booking.status.in_(_BLOCKING_STATUSES),
                         Booking.start_time <= now,
                         Booking.end_time >= now
                     )
@@ -111,23 +117,22 @@ class MockDriver(BaseDriver):
     async def check_availability(self, pc_id: str, start_time: datetime, duration_minutes: int) -> bool:
         """Check availability using DB records."""
         end_time = start_time + timedelta(minutes=duration_minutes)
-        
+
         async with async_session_factory() as session:
-            # First get the computer to check if it exists and get its name
             from models import Computer
             pc = await session.get(Computer, int(pc_id))
             if not pc:
                 return False
-                
+
             pc_name = pc.name
-            
-            # Check for overlapping bookings
+
+            # FIX: check both CONFIRMED and ACTIVE statuses
             result = await session.execute(
                 select(Booking).where(
                     and_(
                         Booking.club_id == self.club_id,
                         Booking.computer_name == pc_name,
-                        Booking.status == "CONFIRMED",
+                        Booking.status.in_(_BLOCKING_STATUSES),
                         Booking.start_time < end_time,
                         Booking.end_time > start_time
                     )
@@ -153,13 +158,13 @@ class MockDriver(BaseDriver):
                     pc_name = pc.name
                     end_time = start_time + timedelta(minutes=duration_minutes)
                     
-                    # Check for conflicts
+                    # FIX: Check both CONFIRMED and ACTIVE to block bot+PWA cross-bookings
                     result = await session.execute(
                         select(Booking).where(
                             and_(
                                 Booking.club_id == self.club_id,
                                 Booking.computer_name == pc_name,
-                                Booking.status == "CONFIRMED",
+                                Booking.status.in_(_BLOCKING_STATUSES),
                                 Booking.start_time < end_time,
                                 Booking.end_time > start_time
                             )
@@ -167,12 +172,13 @@ class MockDriver(BaseDriver):
                     )
                     conflict = result.scalars().first()
                     if conflict:
+                        from utils.timezone import to_tashkent as _to_tash
                         return BookingResult(
-                            success=False, 
+                            success=False,
                             message="Уже забронировано другим пользователем!",
                             conflict_info={
-                                "start": conflict.start_time.strftime("%d.%m %H:%M"),
-                                "end": conflict.end_time.strftime("%H:%M"),
+                                "start": _to_tash(conflict.start_time).strftime("%d.%m %H:%M"),
+                                "end": _to_tash(conflict.end_time).strftime("%H:%M"),
                                 "start_dt": conflict.start_time,
                                 "end_dt": conflict.end_time
                             }

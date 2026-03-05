@@ -156,11 +156,10 @@ async def send_reminder_notifications(bot):
                                 start_naive = booking.start_time.replace(tzinfo=None) if booking.start_time.tzinfo else booking.start_time
                                 time_until = int((start_naive - now).total_seconds() / 60)
                                 
-                                # Convert booking times to Tashkent (UTC+5) for display
-                                from datetime import timezone as _tz, timedelta as _td
-                                tashkent_tz = _tz(_td(hours=5))
-                                start_display = booking.start_time.astimezone(tashkent_tz).strftime('%H:%M') if booking.start_time.tzinfo else booking.start_time.strftime('%H:%M')
-                                end_display = booking.end_time.astimezone(tashkent_tz).strftime('%H:%M') if booking.end_time.tzinfo else booking.end_time.strftime('%H:%M')
+                                # Convert naive UTC → Tashkent (UTC+5) for display
+                                from utils.timezone import to_tashkent as _to_tash
+                                start_display = _to_tash(booking.start_time).strftime('%H:%M')
+                                end_display = _to_tash(booking.end_time).strftime('%H:%M')
                                 
                                 message = (
                                     f"⏰ <b>Напоминание!</b>\n\n"
@@ -210,8 +209,10 @@ async def notify_club_admin_new_booking(bot, booking, user, club):
 
         admin_ids = [int(x.strip()) for x in club.club_admin_tg_ids.split(",") if x.strip().isdigit()]
 
-        start_str = booking.start_time.strftime('%d.%m %H:%M')
-        end_str = booking.end_time.strftime('%H:%M')
+        # FIX: Convert naive UTC → Tashkent (UTC+5) before display
+        from utils.timezone import to_tashkent as _to_tash
+        start_str = _to_tash(booking.start_time).strftime('%d.%m %H:%M')
+        end_str = _to_tash(booking.end_time).strftime('%H:%M')
 
         text = (
             f"🔔 <b>Новая бронь!</b>\n\n"

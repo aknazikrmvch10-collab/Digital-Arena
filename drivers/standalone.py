@@ -219,12 +219,13 @@ class StandaloneDriver(BaseDriver):
                     conflict = result.scalars().first()
                     if conflict:
                         logger.info(f"Booking conflict for PC {pc_id}: existing booking {conflict.id}")
+                        from utils.timezone import to_tashkent as _to_tash
                         return BookingResult(
                             success=False, 
                             message="Уже забронировано другим пользователем!",
                             conflict_info={
-                                "start": conflict.start_time.strftime("%d.%m %H:%M"),
-                                "end": conflict.end_time.strftime("%H:%M"),
+                                "start": _to_tash(conflict.start_time).strftime("%d.%m %H:%M"),
+                                "end": _to_tash(conflict.end_time).strftime("%H:%M"),
                                 "start_dt": conflict.start_time,
                                 "end_dt": conflict.end_time
                             }
