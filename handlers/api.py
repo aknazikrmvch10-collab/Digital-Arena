@@ -174,19 +174,18 @@ class BookingRequest(BaseModel):
     @classmethod
     def validate_start_time(cls, v):
         import datetime as _dt
-        from utils.timezone import now_tashkent
+        from utils.timezone import now_utc as _now_utc
         # Normalize v to naive UTC for comparison
         if v.tzinfo is not None:
             v_utc = v.astimezone(_dt.timezone.utc).replace(tzinfo=None)
         else:
             v_utc = v
-        # now_tashkent returns naive Tashkent time; convert to naive UTC by subtracting 5h
-        now_utc = now_tashkent() - _dt.timedelta(hours=5)
-        # Allow bookings at least 1 hour in advance
-        if v_utc <= now_utc + _dt.timedelta(hours=1):
-            raise ValueError('Booking must be at least 1 hour in advance')
+        now = _now_utc()  # naive UTC
+        # Allow bookings at least 10 minutes from now (MVP-friendly)
+        if v_utc <= now + _dt.timedelta(minutes=10):
+            raise ValueError('Booking must be at least 10 minutes in advance')
         # Max booking 90 days in advance
-        if v_utc > now_utc + _dt.timedelta(days=90):
+        if v_utc > now + _dt.timedelta(days=90):
             raise ValueError('Booking cannot be more than 90 days in advance')
         return v
     
@@ -546,7 +545,8 @@ async def check_availability(
         raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD")
     
     # Validate date is not in the past
-    if target_date < now_tashkent().date():
+    from utils.timezone import now_utc as _now_utc_fn
+    if target_date < _now_utc_fn().date():
         raise HTTPException(status_code=400, detail="Cannot check availability for past dates")
 
     async with async_session_factory() as session:
@@ -612,13 +612,15 @@ async def get_user_bookings(
     user_id = user_data["id"]
     async with async_session_factory() as session:
         # Get total count first
+        from utils.timezone import now_utc as _now_utc_fn
+        _now = _now_utc_fn()  # naive UTC for DB comparison
         count_query = select(func.count(Booking.id)).join(
             User, Booking.user_id == User.id
         ).where(
             and_(
                 User.tg_id == user_id,
                 Booking.status == "CONFIRMED",
-                Booking.end_time > now_tashkent()
+                Booking.end_time > _now
             )
         )
         total = await session.scalar(count_query) or 0
@@ -631,7 +633,7 @@ async def get_user_bookings(
                 and_(
                     User.tg_id == user_id,
                     Booking.status.in_(["CONFIRMED", "ACTIVE"]),
-                    Booking.end_time > now_tashkent()
+                    Booking.end_time > _now
                 )
             ).order_by(Booking.start_time.asc())
             .offset(pagination.offset)
@@ -716,7 +718,10 @@ async def cancel_booking(
                     )
                 
                 # Check if booking is too close to start time (within 1 hour)
-                time_until_booking = (booking.start_time - now_tashkent()).total_seconds() / 3600
+                from utils.timezone import now_utc as _now_utc_fn
+                _now_cancel = _now_utc_fn()
+                start_naive = booking.start_time.replace(tzinfo=None) if booking.start_time.tzinfo else booking.start_time
+                time_until_booking = (start_naive - _now_cancel).total_seconds() / 3600
                 if time_until_booking < 1:
                     raise HTTPException(
                         status_code=400,
@@ -752,10 +757,16 @@ import os
 
 _JWT_SECRET = os.getenv("SECRET_KEY", "CHANGE_ME_USE_STRONG_SECRET_IN_PRODUCTION")
 _JWT_ALGORITHM = "HS256"
+_JWT_EXPIRY_DAYS = 30
 
 def _make_web_token(user_id: int, tg_id: int) -> str:
-    """Create a signed JWT token. Cannot be forged without knowing SECRET_KEY."""
-    payload = {"user_id": user_id, "tg_id": tg_id}
+    """Create a signed JWT token with 30-day expiry."""
+    from datetime import datetime, timedelta, timezone
+    payload = {
+        "user_id": user_id,
+        "tg_id": tg_id,
+        "exp": datetime.now(timezone.utc) + timedelta(days=_JWT_EXPIRY_DAYS)
+    }
     return jwt.encode(payload, _JWT_SECRET, algorithm=_JWT_ALGORITHM)
 
 def _parse_web_token(token: str) -> dict | None:
@@ -788,12 +799,14 @@ async def get_web_user(request: Request) -> dict:
 @router.post("/web/login")
 async def web_login(data: WebLoginRequest):
     """Login by phone number. Returns token if user exists."""
-    phone = data.phone.strip().replace("+", "")
+    phone = data.phone.strip()
+    if not phone.startswith("+"):
+        phone = "+" + phone
     
     async with async_session_factory() as session:
-        # Search by phone (stored without +) 
+        # Exact match on normalized phone
         result = await session.execute(
-            select(User).where(User.phone.ilike(f"%{phone[-9:]}%"))
+            select(User).where(User.phone == phone)
         )
         user = result.scalars().first()
         
@@ -856,8 +869,8 @@ class LanguageUpdate(BaseModel):
 @router.post("/web/language")
 async def web_set_language(body: LanguageUpdate, request: Request):
     """Update user language preference from the Mini App."""
-    if body.language not in ('ru', 'uz', 'kz'):
-        raise HTTPException(status_code=400, detail="Invalid language")
+    if body.language not in ('ru', 'uz', 'en'):
+        raise HTTPException(status_code=400, detail="Invalid language. Supported: ru, uz, en")
     async with async_session_factory() as session:
         async with session.begin():
             result = await session.execute(select(User).where(User.tg_id == body.tg_id))
@@ -874,9 +887,10 @@ async def web_user_bookings(request: Request):
     user_data = await get_web_user(request)
     
     async with async_session_factory() as session:
-        now = now_tashkent()
+        # JOIN to avoid N+1 queries
         result = await session.execute(
-            select(Booking)
+            select(Booking, Club)
+            .join(Club, Booking.club_id == Club.id)
             .where(
                 and_(
                     Booking.user_id == user_data["user_id"],
@@ -886,21 +900,18 @@ async def web_user_bookings(request: Request):
             .order_by(Booking.start_time.desc())
             .limit(20)
         )
-        bookings = result.scalars().all()
+        rows = result.all()
         
-        from datetime import timezone, timedelta
-        tz = timezone(timedelta(hours=5))
+        from utils.timezone import to_tashkent
         items = []
-        for b in bookings:
-            # Get club name
-            club = await session.get(Club, b.club_id)
-            
-            # ✅ FIX #3: Booking model has `end_time` directly, not `duration_minutes` or `computer_id`
+        for b, club in rows:
+            start_tash = to_tashkent(b.start_time) if b.start_time else b.start_time
+            end_tash = to_tashkent(b.end_time) if b.end_time else b.end_time
             items.append({
                 "id": b.id,
                 "club_name": club.name if club else "Unknown",
                 "computer_name": b.computer_name or "Unknown PC",
-                "display_time": f"{b.start_time.astimezone(tz).strftime('%d.%m %H:%M')} — {b.end_time.astimezone(tz).strftime('%H:%M')}",
+                "display_time": f"{start_tash.strftime('%d.%m %H:%M')} — {end_tash.strftime('%H:%M')}",
                 "status": b.status,
                 "start_time": b.start_time.isoformat()
             })
@@ -941,8 +952,24 @@ async def web_cancel_booking(booking_id: int, request: Request):
 # ============================================================
 
 async def _require_admin(request: Request) -> int:
-    """Check X-Admin-TG-ID header against admins table. Returns tg_id or raises 403."""
+    """Check admin via X-Admin-TG-ID + HMAC signature, or via valid JWT token."""
     from models import Admin
+    
+    # Method 1: JWT token (most secure)
+    auth_header = request.headers.get("Authorization", "")
+    if auth_header.startswith("Bearer "):
+        token = auth_header[7:]
+        payload = _parse_web_token(token)
+        if payload:
+            tg_id = payload.get("tg_id")
+            if tg_id:
+                async with async_session_factory() as session:
+                    result = await session.execute(select(Admin).where(Admin.tg_id == tg_id))
+                    admin = result.scalars().first()
+                if admin:
+                    return tg_id
+    
+    # Method 2: X-Admin-TG-ID header (backward compat)
     tg_id_str = request.headers.get("X-Admin-TG-ID")
     if not tg_id_str or not tg_id_str.isdigit():
         raise HTTPException(status_code=401, detail="Unauthorized")
@@ -994,15 +1021,16 @@ async def admin_stats_api(request: Request):
                 "count": cnt
             })
 
-        # Recent 20 bookings
+        # Recent 20 bookings (with JOIN to avoid N+1)
         recent_result = await session.execute(
-            select(Booking).order_by(Booking.created_at.desc()).limit(20)
+            select(Booking, User, Club)
+            .outerjoin(User, Booking.user_id == User.id)
+            .outerjoin(Club, Booking.club_id == Club.id)
+            .order_by(Booking.created_at.desc()).limit(20)
         )
-        recent = recent_result.scalars().all()
+        recent_rows = recent_result.all()
         recent_bookings = []
-        for b in recent:
-            user = await session.get(User, b.user_id)
-            club = await session.get(Club, b.club_id)
+        for b, user, club in recent_rows:
             recent_bookings.append({
                 "id": b.id,
                 "user_name": user.full_name if user else "Unknown",
@@ -1033,21 +1061,25 @@ async def admin_stats_api(request: Request):
         ) or 0
         noshow_rate = round(noshow_count / completed_plus_noshow * 100) if completed_plus_noshow > 0 else 0
 
-        # Revenue last 7 days (from Computer price_per_hour * duration)
+        # Revenue last 7 days (from Computer price_per_hour * booking duration in hours)
+        from sqlalchemy import cast, Float as SAFloat
         revenue_result = await session.execute(
-            select(Computer.price_per_hour, Booking.duration_minutes).join(
+            select(
+                Computer.price_per_hour,
+                func.extract('epoch', Booking.end_time - Booking.start_time).label('duration_secs')
+            ).join(
                 Computer,
                 and_(
                     Booking.club_id == Computer.club_id,
-                    Booking.computer_id == Computer.computer_id
+                    Booking.item_id == Computer.id
                 )
             ).where(
                 and_(Booking.created_at >= week_start, Booking.status.in_(["COMPLETED", "ACTIVE"]))
             )
         )
         revenue_week = sum(
-            (price or 0) * (mins or 60) / 60
-            for price, mins in revenue_result
+            (price or 0) * (secs or 3600) / 3600
+            for price, secs in revenue_result
         )
 
         # Peak hours (hour → booking count, all time)
@@ -1100,14 +1132,16 @@ async def admin_bookings_api(request: Request, limit: int = Query(50, le=200)):
     """Full bookings list for the web admin panel."""
     await _require_admin(request)
     async with async_session_factory() as session:
+        # JOIN to avoid N+1 queries
         result = await session.execute(
-            select(Booking).order_by(Booking.created_at.desc()).limit(limit)
+            select(Booking, User, Club)
+            .outerjoin(User, Booking.user_id == User.id)
+            .outerjoin(Club, Booking.club_id == Club.id)
+            .order_by(Booking.created_at.desc()).limit(limit)
         )
-        bookings = result.scalars().all()
+        rows = result.all()
         items = []
-        for b in bookings:
-            user = await session.get(User, b.user_id)
-            club = await session.get(Club, b.club_id)
+        for b, user, club in rows:
             items.append({
                 "id": b.id,
                 "user_name": user.full_name if user else "Unknown",

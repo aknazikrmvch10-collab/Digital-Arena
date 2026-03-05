@@ -111,7 +111,7 @@ async def send_reminder_notifications(bot):
         try:
             async with async_session_factory() as session:
                 from datetime import datetime, timedelta
-                now = now_tashkent()
+                now = now_utc()  # naive UTC — matches DB storage
                 
                 # Check for each possible notification time (15, 30, 60 minutes)
                 for minutes in [15, 30, 60]:
@@ -152,7 +152,9 @@ async def send_reminder_notifications(bot):
                             
                             if user and club:
                                 # Calculate exact time until booking
-                                time_until = int((booking.start_time - now).total_seconds() / 60)
+                                # Calculate time until booking (both naive UTC)
+                                start_naive = booking.start_time.replace(tzinfo=None) if booking.start_time.tzinfo else booking.start_time
+                                time_until = int((start_naive - now).total_seconds() / 60)
                                 
                                 # Convert booking times to Tashkent (UTC+5) for display
                                 from datetime import timezone as _tz, timedelta as _td
@@ -241,7 +243,7 @@ async def send_review_requests(bot):
             async with async_session_factory() as session:
                 from models import Review
                 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
-                now = now_tashkent()
+                now = now_utc()  # naive UTC — matches DB storage
                 # Find bookings completed in the last 15 minutes, no review yet
                 window_start = now - timedelta(minutes=15)
                 window_end = now + timedelta(minutes=5)

@@ -1,7 +1,7 @@
 from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, DateTime, JSON, Float, BigInteger
 from sqlalchemy.orm import relationship
 from database import Base
-from utils.timezone import now_tashkent
+from utils.timezone import now_tashkent, now_utc
 
 class User(Base):
     __tablename__ = "users"
@@ -11,7 +11,7 @@ class User(Base):
     username = Column(String, nullable=True)
     phone = Column(String, nullable=True)
     full_name = Column(String, nullable=True)
-    created_at = Column(DateTime(timezone=True), default=lambda: now_tashkent())
+    created_at = Column(DateTime(timezone=True), default=lambda: now_utc())
     
     # Notification settings
     notifications_enabled = Column(Boolean, default=True)
@@ -46,7 +46,7 @@ class Club(Base):
 
     # Driver Configuration
     driver_type = Column(String) # "SMARTSHELL", "ICAFE", "STANDALONE", "MOCK"
-    connection_config = Column(JSON, default={}) # API Keys, URLs, etc.
+    connection_config = Column(JSON, default=dict)  # API Keys, URLs, etc.
     
     # Contact and info
     admin_phone = Column(String, nullable=True)
@@ -179,7 +179,7 @@ class Booking(Base):
     confirmation_code = Column(String, nullable=True) # Unique code for check-in
     check_timeout = Column(Boolean, default=False)
     notification_sent = Column(Boolean, default=False)
-    created_at = Column(DateTime(timezone=True), default=lambda: now_tashkent())
+    created_at = Column(DateTime(timezone=True), default=lambda: now_utc())
 
     user = relationship("User", back_populates="bookings")
     club = relationship("Club", back_populates="bookings")
@@ -189,13 +189,13 @@ class Admin(Base):
     id = Column(Integer, primary_key=True, index=True)
     tg_id = Column(BigInteger, unique=True, nullable=False)
     club_id = Column(Integer, ForeignKey("clubs.id"), nullable=True)  # None = super-admin
-    created_at = Column(DateTime(timezone=True), default=lambda: now_tashkent())
+    created_at = Column(DateTime(timezone=True), default=lambda: now_utc())
 
 class AuditLog(Base):
     __tablename__ = "audit_logs"
 
     id = Column(Integer, primary_key=True, index=True)
-    timestamp = Column(DateTime(timezone=True), default=lambda: now_tashkent(), index=True)
+    timestamp = Column(DateTime(timezone=True), default=lambda: now_utc(), index=True)
     event_type = Column(String, index=True)  # e.g., "BOOKING_CREATED", "PC_USAGE_LOG"
     details = Column(JSON)  # Stores the actual log data
     previous_hash = Column(String, nullable=True)  # Hash of the previous record (chain)
@@ -222,7 +222,7 @@ class Review(Base):
     booking_id = Column(Integer, ForeignKey("bookings.id"), nullable=False, unique=True)  # One review per booking
     rating = Column(Integer, nullable=False)  # 1-5 stars
     comment = Column(String, nullable=True)  # Optional text review
-    created_at = Column(DateTime(timezone=True), default=lambda: now_tashkent())
+    created_at = Column(DateTime(timezone=True), default=lambda: now_utc())
 
     user = relationship("User", foreign_keys=[user_id], back_populates="reviews")
     club = relationship("Club", back_populates="reviews")
@@ -240,16 +240,19 @@ class PromoCode(Base):
     is_active = Column(Boolean, default=True)
     expires_at = Column(DateTime(timezone=True), nullable=True)  # None = no expiry
     club_id = Column(Integer, ForeignKey("clubs.id"), nullable=True)  # None = platform-wide
-    created_at = Column(DateTime(timezone=True), default=lambda: now_tashkent())
+    created_at = Column(DateTime(timezone=True), default=lambda: now_utc())
     created_by_tg_id = Column(BigInteger, nullable=True)  # Telegram ID of the creator
 
     def is_valid(self) -> bool:
-        from utils.timezone import now_tashkent
+        from utils.timezone import now_utc
         if not self.is_active:
             return False
         if self.max_uses and self.uses_count >= self.max_uses:
             return False
-        if self.expires_at and now_tashkent() > self.expires_at:
+        # Compare using naive UTC to match DB storage convention
+        now = now_utc()
+        expires = self.expires_at.replace(tzinfo=None) if self.expires_at and self.expires_at.tzinfo else self.expires_at
+        if expires and now > expires:
             return False
         return True
 
@@ -264,7 +267,7 @@ class AppAuthCode(Base):
     user_id = Column(BigInteger, nullable=False, index=True)   # Telegram user ID
     phone = Column(String, nullable=False)                      # Phone number (e.g. +998901234567)
     code = Column(String(6), nullable=False)                    # 6-digit code
-    created_at = Column(DateTime(timezone=True), default=lambda: now_tashkent())
+    created_at = Column(DateTime(timezone=True), default=lambda: now_utc())
     expires_at = Column(DateTime(timezone=True), nullable=False) # 10 min TTL
     used = Column(Boolean, default=False)
 
@@ -278,6 +281,6 @@ class AppSession(Base):
     session_token = Column(String, unique=True, index=True)     # UUID token
     phone = Column(String, nullable=True)
     full_name = Column(String, nullable=True)
-    created_at = Column(DateTime(timezone=True), default=lambda: now_tashkent())
-    last_seen = Column(DateTime(timezone=True), default=lambda: now_tashkent())
+    created_at = Column(DateTime(timezone=True), default=lambda: now_utc())
+    last_seen = Column(DateTime(timezone=True), default=lambda: now_utc())
 
