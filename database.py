@@ -75,6 +75,27 @@ async def init_db():
             paid_at TIMESTAMP
         )"""),
     ]
+
+    # Wave 5: Seed default Tashkent coordinates for clubs that have none
+    # Uses Python loop so it works on both PostgreSQL and SQLite.
+    try:
+        async with async_session_factory() as session:
+            from sqlalchemy import text as _text
+            result = await session.execute(
+                _text("SELECT id FROM clubs WHERE latitude IS NULL OR longitude IS NULL ORDER BY id")
+            )
+            club_ids = [row[0] for row in result.fetchall()]
+            for idx, club_id in enumerate(club_ids):
+                # Tashkent center ~41.2995, 69.2401 — offset ~100m per club
+                lat = 41.2995 + idx * 0.0009
+                lng = 69.2401 + idx * 0.0009
+                await session.execute(
+                    _text("UPDATE clubs SET latitude = :lat, longitude = :lng WHERE id = :id"),
+                    {"lat": lat, "lng": lng, "id": club_id}
+                )
+            await session.commit()
+    except Exception:
+        pass  # Table might not exist yet on first run
     
     for pg_sql, sqlite_sql in migrations:
         try:
