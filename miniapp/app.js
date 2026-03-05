@@ -1321,44 +1321,64 @@ function switchTab(tab) {
 async function renderBookingsTab() {
     const container = document.getElementById('my-bookings-tab-list');
     if (!container) return;
-    container.innerHTML = '<p style="text-align:center;color:rgba(255,255,255,0.4)">Загрузка...</p>';
+    container.innerHTML = '<p style="text-align:center;padding:32px 0;color:rgba(255,255,255,0.4)">⏳ Загрузка...</p>';
 
     const user = getAuthUser();
-    const userId = user?.id;
-    if (!userId) {
-        container.innerHTML = '<p style="text-align:center;color:rgba(255,255,255,0.4)">Войдите через Telegram</p>';
+    if (!user) {
+        container.innerHTML = '<p style="text-align:center;padding:32px 0;color:rgba(255,255,255,0.4)">🔐 Войдите в аккаунт</p>';
         return;
     }
+
     try {
-        const r = await fetch(`${API_BASE_URL}/web/bookings?tg_id=${userId}`, {
+        const r = await fetch(`${API_BASE_URL}/web/bookings`, {
             headers: {
                 'ngrok-skip-browser-warning': 'true',
-                'X-Telegram-Init-Data': tg.initData
+                'X-Telegram-Init-Data': tg.initData || '',
+                ...getAuthHeaders()
             }
         });
+
+        if (!r.ok) {
+            throw new Error(`Ошибка ${r.status}`);
+        }
+
         const bookings = await r.json();
         if (!bookings.length) {
-            container.innerHTML = '<p style="text-align:center;color:rgba(255,255,255,0.4);padding:32px 0">📋 Нет броней</p>';
+            container.innerHTML = '<p style="text-align:center;color:rgba(255,255,255,0.4);padding:32px 0">📋 Ещё нет броней</p>';
             return;
         }
-        container.innerHTML = bookings.map(b => `
-            <div class="booking-card" style="margin-bottom:12px">
-                <div class="booking-header">
-                    <strong>${b.computer_name}</strong>
-                    <span class="booking-status-badge status-${(b.status || '').toLowerCase()}">${{
-                'CONFIRMED': '✅ Подтверждено', 'ACTIVE': '🟢 Активно',
-                'COMPLETED': '✔ Завершено', 'CANCELLED': '❌ Отменено',
-                'NO_SHOW': '👻 Не явился'
-            }[b.status] || b.status}</span>
+
+        const statusMap = {
+            'CONFIRMED': { label: '✅ Подтверждено', cls: 'confirmed' },
+            'ACTIVE': { label: '🟢 Активно', cls: 'active' },
+            'COMPLETED': { label: '✔ Завершено', cls: 'completed' },
+            'CANCELLED': { label: '❌ Отменено', cls: 'cancelled' },
+            'NO_SHOW': { label: '👻 Не явился', cls: 'cancelled' },
+        };
+
+        container.innerHTML = bookings.map(b => {
+            const st = statusMap[b.status] || { label: b.status, cls: 'completed' };
+            const canCancel = b.status === 'CONFIRMED' || b.status === 'ACTIVE';
+            const hasQR = b.confirmation_code && canCancel;
+            return `
+                <div class="booking-card" style="margin-bottom:12px">
+                    <div class="booking-header">
+                        <strong>🖥 ${b.computer_name}</strong>
+                        <span class="booking-status-badge status-${st.cls}">${st.label}</span>
+                    </div>
+                    <div class="booking-info" style="margin-top:4px;font-size:13px;opacity:0.7">
+                        🏢 ${b.club_name} &nbsp;·&nbsp; 🕒 ${b.display_time}
+                    </div>
+                    <div class="booking-action-buttons" style="margin-top:8px;display:flex;gap:8px">
+                        ${hasQR ? `<button class="qr-btn-small" onclick="showQRCode('${b.confirmation_code}')">🎟 QR-код</button>` : ''}
+                        ${canCancel ? `<button class="cancel-btn-small" onclick="cancelBooking(${b.id})">✖ Отмена</button>` : ''}
+                    </div>
                 </div>
-                <div class="booking-info">${b.club_name} · ${b.display_time}</div>
-                <div class="booking-action-buttons">
-                    <button class="qr-btn-small" onclick="showQRCode('${b.id}')">🎟 Показать код</button>
-                </div>
-            </div>
-        `).join('');
+            `;
+        }).join('');
+
     } catch (e) {
-        container.innerHTML = `<p style="text-align:center;color:var(--error)">Ошибка: ${e.message}</p>`;
+        container.innerHTML = `<p style="text-align:center;color:var(--error);padding:16px">❌ ${e.message}</p>`;
     }
 }
 
@@ -1367,63 +1387,97 @@ async function renderProfileTab() {
     const user = getAuthUser();
 
     if (!user) {
-        container.innerHTML = '<p style="text-align:center;color:rgba(255,255,255,0.4)">Войдите через Telegram</p>';
+        container.innerHTML = '<p style="text-align:center;color:rgba(255,255,255,0.4);padding:32px">🔐 Войдите в аккаунт</p>';
         return;
     }
 
-    // Fetch referral code from API
-    let referralCode = '—';
+    // Show skeleton
+    container.innerHTML = '<p style="text-align:center;padding:32px;opacity:0.5">⏳ Загрузка...</p>';
+
+    let profile = null;
     try {
-        const r = await fetch(`${API_BASE_URL}/web/profile?tg_id=${user.id}`, {
-            headers: { ...getAuthHeaders() }
+        const r = await fetch(`${API_BASE_URL}/web/profile`, {
+            headers: { ...getAuthHeaders(), 'X-Telegram-Init-Data': tg.initData || '' }
         });
-        if (r.ok) {
-            const data = await r.json();
-            referralCode = data.referral_code || '—';
-        }
+        if (r.ok) profile = await r.json();
     } catch (e) { }
 
-    const botUsername = 'ArenaSlot_bot'; // Update if bot username changes
-    const inviteLink = `https://t.me/${botUsername}?start=ref_${referralCode}`;
+    const name = profile?.full_name || user.first_name || 'Пользователь';
+    const phone = profile?.phone || '—';
+    const balance = profile?.balance ?? 0;
+    const totalB = profile?.total_bookings ?? 0;
+    const completedB = profile?.completed_bookings ?? 0;
+    const loyalty = profile?.loyalty || { level: 'Bronze', icon: '🥉', next: 'Silver', needed: 5 };
+    const referralCode = profile?.referral_code || '—';
+    const loyaltyPct = loyalty.next
+        ? Math.min(100, Math.round(((completedB % (loyalty.level === 'Bronze' ? 5 : loyalty.level === 'Silver' ? 15 : 30)) / (loyalty.level === 'Bronze' ? 5 : loyalty.level === 'Silver' ? 15 : 30)) * 100))
+        : 100;
 
     container.innerHTML = `
-        <div class="profile-card">
-            <h4>Аккаунт</h4>
-            <div class="profile-row">
-                <span>👤 Имя</span>
-                <span class="profile-value">${user.first_name || ''} ${user.last_name || ''}</span>
+        <!-- Loyalty Card -->
+        <div class="profile-card" style="background:linear-gradient(135deg,rgba(124,58,237,0.3),rgba(0,242,255,0.15));border:1px solid rgba(124,58,237,0.3)">
+            <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">
+                <div style="font-size:36px;line-height:1">${loyalty.icon}</div>
+                <div>
+                    <div style="font-size:20px;font-weight:700">${loyalty.level}</div>
+                    <div style="font-size:12px;opacity:0.6">${loyalty.next ? `До ${loyalty.next}: ещё ${loyalty.needed} визитов` : 'Максимальный уровень!'}</div>
+                </div>
             </div>
-            ${user.username ? `<div class="profile-row">
-                <span>@ Username</span>
-                <span class="profile-value">@${user.username}</span>
-            </div>` : ''}
-            <div class="profile-row">
-                <span>🆔 Telegram ID</span>
-                <span class="profile-value">${user.id}</span>
+            <div style="background:rgba(255,255,255,0.1);border-radius:6px;height:6px;overflow:hidden">
+                <div style="background:linear-gradient(90deg,var(--primary),var(--secondary));height:100%;width:${loyaltyPct}%;transition:width 0.5s"></div>
             </div>
         </div>
 
+        <!-- Account Info -->
         <div class="profile-card">
-            <h4>🎁 Реферальная программа</h4>
+            <h4 style="margin-bottom:12px">👤 Аккаунт</h4>
+            <div class="profile-row"><span>Имя</span><span class="profile-value">${name}</span></div>
+            <div class="profile-row"><span>📱 Телефон</span><span class="profile-value">${phone}</span></div>
+            ${profile?.username ? `<div class="profile-row"><span>@ Username</span><span class="profile-value">@${profile.username}</span></div>` : ''}
+        </div>
+
+        <!-- Stats -->
+        <div class="profile-card">
+            <h4 style="margin-bottom:12px">📊 Статистика</h4>
+            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;text-align:center">
+                <div style="background:rgba(255,255,255,0.05);border-radius:12px;padding:12px">
+                    <div style="font-size:22px;font-weight:700;color:var(--primary)">${totalB}</div>
+                    <div style="font-size:11px;opacity:0.6">Всего броней</div>
+                </div>
+                <div style="background:rgba(255,255,255,0.05);border-radius:12px;padding:12px">
+                    <div style="font-size:22px;font-weight:700;color:#10b981">${completedB}</div>
+                    <div style="font-size:11px;opacity:0.6">Завершено</div>
+                </div>
+                <div style="background:rgba(255,255,255,0.05);border-radius:12px;padding:12px">
+                    <div style="font-size:22px;font-weight:700;color:var(--secondary)">${balance.toLocaleString()}</div>
+                    <div style="font-size:11px;opacity:0.6">Баланс (UZS)</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Referral -->
+        ${referralCode !== '—' ? `
+        <div class="profile-card">
+            <h4 style="margin-bottom:12px">🎁 Реферальный код</h4>
             <div class="profile-row">
                 <span>Ваш код</span>
-                <span class="profile-value" onclick="navigator.clipboard.writeText('${referralCode}')" style="cursor:pointer" title="Нажмите для копирования">${referralCode} 📋</span>
+                <span class="profile-value" onclick="navigator.clipboard.writeText('${referralCode}');showToast('✅ Код скопирован!','success')" style="cursor:pointer">${referralCode} 📋</span>
             </div>
-            <div style="margin-top:10px">
-                <a href="https://t.me/share/url?url=${encodeURIComponent(inviteLink)}&text=${encodeURIComponent('Бронируй ПК через Digital Arena!')}"
-                   style="display:block;text-align:center;background:linear-gradient(135deg,#00f2ff,#8b5cf6);color:#000;border-radius:10px;padding:10px;font-weight:700;text-decoration:none;font-size:14px">
-                   📤 Поделиться ссылкой
-                </a>
+        </div>` : ''}
+
+        <!-- Language -->
+        <div class="profile-card">
+            <h4 style="margin-bottom:12px">🌍 Язык</h4>
+            <div style="display:flex;gap:8px">
+                <button onclick="setLanguageFromApp('ru')" style="flex:1;padding:10px;border-radius:10px;border:1px solid rgba(255,255,255,0.1);background:rgba(255,255,255,0.05);color:#fff;cursor:pointer;font-size:13px">🇷🇺 Рус</button>
+                <button onclick="setLanguageFromApp('uz')" style="flex:1;padding:10px;border-radius:10px;border:1px solid rgba(255,255,255,0.1);background:rgba(255,255,255,0.05);color:#fff;cursor:pointer;font-size:13px">🇺🇿 Uz</button>
+                <button onclick="setLanguageFromApp('en')" style="flex:1;padding:10px;border-radius:10px;border:1px solid rgba(255,255,255,0.1);background:rgba(255,255,255,0.05);color:#fff;cursor:pointer;font-size:13px">🇬🇧 En</button>
             </div>
         </div>
 
-        <div class="profile-card">
-            <h4>🌍 Язык</h4>
-            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:4px">
-                <button onclick="setLanguageFromApp('ru')" style="flex:1;padding:10px;border-radius:10px;border:1px solid rgba(255,255,255,0.1);background:rgba(255,255,255,0.05);color:#fff;cursor:pointer;font-size:13px">🇷🇺 Русский</button>
-                <button onclick="setLanguageFromApp('uz')" style="flex:1;padding:10px;border-radius:10px;border:1px solid rgba(255,255,255,0.1);background:rgba(255,255,255,0.05);color:#fff;cursor:pointer;font-size:13px">🇺🇿 O'zbek</button>
-                <button onclick="setLanguageFromApp('kz')" style="flex:1;padding:10px;border-radius:10px;border:1px solid rgba(255,255,255,0.1);background:rgba(255,255,255,0.05);color:#fff;cursor:pointer;font-size:13px">🇰🇿 Қазақ</button>
-            </div>
+        <!-- Logout -->
+        <div style="padding:0 0 8px">
+            <button onclick="logoutUser()" style="width:100%;padding:12px;border-radius:12px;border:1px solid rgba(255,100,100,0.3);background:rgba(255,0,0,0.08);color:rgba(255,100,100,0.9);cursor:pointer;font-size:14px;font-weight:600">🚪 Выйти из аккаунта</button>
         </div>
     `;
 }
@@ -1435,15 +1489,31 @@ async function setLanguageFromApp(lang) {
     try {
         await fetch(`${API_BASE_URL}/web/language`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+            headers: { 'Content-Type': 'application/json', ...getAuthHeaders(), 'X-Telegram-Init-Data': tg.initData || '' },
             body: JSON.stringify({ tg_id: userId, language: lang })
         });
-        const labels = { ru: 'Русский 🇷🇺', uz: "O'zbek 🇺🇿", kz: 'Қазақ 🇰🇿' };
+        const labels = { ru: 'Русский 🇷🇺', uz: "O'zbek 🇺🇿", en: 'English 🇬🇧' };
         showToast(`✅ Язык изменён: ${labels[lang]}`, 'success');
     } catch (e) {
         showToast('Ошибка при смене языка', 'error');
     }
 }
+
+function logoutUser() {
+    if (!confirm('Выйти из аккаунта?')) return;
+    // Call logout endpoint to invalidate session on server
+    const token = localStorage.getItem('session_token');
+    if (token) {
+        fetch(`${API_BASE_URL}/auth/logout`, {
+            method: 'POST',
+            headers: { 'X-Session-Token': token }
+        }).catch(() => { });
+    }
+    localStorage.removeItem('session_token');
+    localStorage.removeItem('session_user');
+    window.location.reload();
+}
+
 
 // ==================== AUTH USER HELPER ====================
 function getAuthUser() {

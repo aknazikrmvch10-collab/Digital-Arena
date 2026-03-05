@@ -980,17 +980,54 @@ async def web_profile(request: Request):
     """Return user's profile data for the Mini App Profile tab."""
     user_data = await get_web_user(request)
     async with async_session_factory() as session:
-        result = await session.execute(select(User).where(User.tg_id == user_data["tg_id"]))
+        # Find by user_id (works for both Telegram and password-based users)
+        result = await session.execute(
+            select(User).where(User.id == user_data["user_id"])
+        )
         user = result.scalars().first()
         if not user:
             raise HTTPException(status_code=404, detail="User not found")
+
+        # Booking stats
+        total_bookings = await session.scalar(
+            select(func.count(Booking.id)).where(Booking.user_id == user.id)
+        ) or 0
+        completed = await session.scalar(
+            select(func.count(Booking.id)).where(
+                Booking.user_id == user.id,
+                Booking.status == "COMPLETED"
+            )
+        ) or 0
+        cancelled = await session.scalar(
+            select(func.count(Booking.id)).where(
+                Booking.user_id == user.id,
+                Booking.status == "CANCELLED"
+            )
+        ) or 0
+
+        # Loyalty level based on completed bookings
+        if completed >= 50:
+            loyalty = {"level": "Platinum", "icon": "💎", "next": None, "needed": 0}
+        elif completed >= 20:
+            loyalty = {"level": "Gold", "icon": "🥇", "next": "Platinum", "needed": 50 - completed}
+        elif completed >= 5:
+            loyalty = {"level": "Silver", "icon": "🥈", "next": "Gold", "needed": 20 - completed}
+        else:
+            loyalty = {"level": "Bronze", "icon": "🥉", "next": "Silver", "needed": 5 - completed}
+
         return {
+            "user_id": user.id,
             "tg_id": user.tg_id,
             "full_name": user.full_name,
             "username": user.username,
             "phone": user.phone,
             "referral_code": getattr(user, 'referral_code', None),
             "language": getattr(user, 'language', 'ru'),
+            "balance": 0,  # Placeholder for future wallet
+            "total_bookings": total_bookings,
+            "completed_bookings": completed,
+            "cancelled_bookings": cancelled,
+            "loyalty": loyalty,
         }
 
 
@@ -1018,23 +1055,17 @@ async def web_set_language(body: LanguageUpdate, request: Request):
 async def web_user_bookings(request: Request):
     """Get bookings for authenticated web user."""
     user_data = await get_web_user(request)
-    
+
     async with async_session_factory() as session:
-        # JOIN to avoid N+1 queries
         result = await session.execute(
             select(Booking, Club)
             .join(Club, Booking.club_id == Club.id)
-            .where(
-                and_(
-                    Booking.user_id == user_data["user_id"],
-                    Booking.status.in_(["CONFIRMED", "ACTIVE"])
-                )
-            )
+            .where(Booking.user_id == user_data["user_id"])
             .order_by(Booking.start_time.desc())
-            .limit(20)
+            .limit(50)
         )
         rows = result.all()
-        
+
         from utils.timezone import to_tashkent
         items = []
         for b, club in rows:
@@ -1046,9 +1077,10 @@ async def web_user_bookings(request: Request):
                 "computer_name": b.computer_name or "Unknown PC",
                 "display_time": f"{start_tash.strftime('%d.%m %H:%M')} — {end_tash.strftime('%H:%M')}",
                 "status": b.status,
+                "confirmation_code": b.confirmation_code,
                 "start_time": b.start_time.isoformat()
             })
-        
+
         return items
 
 

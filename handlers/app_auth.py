@@ -126,3 +126,76 @@ async def handle_contact(message: Message):
         err_str = traceback.format_exc()
         await message.answer(f"❌ Internal Server Error:\n<pre>{err_str[-1000:]}</pre>", parse_mode="HTML")
 
+
+# ========== /setpassword — create password for multi-device login ==========
+from aiogram.fsm.context import FSMContext
+from aiogram.fsm.state import State, StatesGroup
+
+class PasswordStates(StatesGroup):
+    waiting_for_password = State()
+    waiting_for_confirm = State()
+
+@router.message(Command("setpassword"))
+async def cmd_setpassword(message: Message, state: FSMContext):
+    """Allow user to create a password for logging in from any device."""
+    await state.set_state(PasswordStates.waiting_for_password)
+    await message.answer(
+        "🔐 <b>Создание пароля для входа в приложение</b>\n\n"
+        "Введите <b>новый пароль</b> (минимум 6 символов).\n"
+        "После этого вы сможете входить в Digital Arena\n"
+        "с любого устройства через номер телефона + пароль.\n\n"
+        "✏️ <i>Введите пароль:</i>",
+        parse_mode="HTML",
+        reply_markup=ReplyKeyboardRemove()
+    )
+
+@router.message(PasswordStates.waiting_for_password)
+async def got_password(message: Message, state: FSMContext):
+    pw = message.text.strip()
+    if len(pw) < 6:
+        await message.answer("⚠️ Пароль должен быть минимум 6 символов. Попробуйте снова:")
+        return
+    await state.update_data(password=pw)
+    await state.set_state(PasswordStates.waiting_for_confirm)
+    await message.answer("🔁 Повторите пароль для подтверждения:")
+
+@router.message(PasswordStates.waiting_for_confirm)
+async def got_password_confirm(message: Message, state: FSMContext):
+    data = await state.get_data()
+    pw = data.get("password", "")
+    pw2 = message.text.strip()
+
+    if pw != pw2:
+        await state.set_state(PasswordStates.waiting_for_password)
+        await message.answer("❌ Пароли не совпадают. Начните заново — введите новый пароль:")
+        return
+
+    # Hash and save
+    import hashlib, uuid as _uuid
+    from sqlalchemy import select as _select
+    salt = str(_uuid.uuid4())[:8]
+    pw_hash = hashlib.sha256(f"{pw}{salt}".encode()).hexdigest()
+    password_hash = f"{salt}${pw_hash}"
+
+    tg_id = message.from_user.id
+    async with async_session_factory() as session:
+        result = await session.execute(_select(User).where(User.tg_id == tg_id))
+        user = result.scalars().first()
+        if not user:
+            await message.answer("❌ Аккаунт не найден. Сначала зарегистрируйтесь через /start")
+            await state.clear()
+            return
+        phone = user.phone or "—"
+        user.password_hash = password_hash
+        await session.commit()
+
+    await state.clear()
+    await message.answer(
+        f"✅ <b>Пароль успешно создан!</b>\n\n"
+        f"Теперь вы можете войти в приложение с любого устройства:\n"
+        f"• 📱 <b>Телефон:</b> <code>{phone}</code>\n"
+        f"• 🔐 <b>Пароль:</b> ваш только что созданный пароль\n\n"
+        f"Откройте приложение → вкладка «🔐 Пароль» → введите данные.",
+        parse_mode="HTML"
+    )
+
