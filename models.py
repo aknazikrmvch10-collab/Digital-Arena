@@ -284,3 +284,29 @@ class AppSession(Base):
     created_at = Column(DateTime(timezone=True), default=lambda: now_utc())
     last_seen = Column(DateTime(timezone=True), default=lambda: now_utc())
 
+
+# ====================== PAYMENTS ======================
+
+class Payment(Base):
+    """Payment record for a booking."""
+    __tablename__ = "payments"
+
+    id = Column(Integer, primary_key=True, index=True)
+    booking_id = Column(Integer, ForeignKey("bookings.id"), nullable=False, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    amount = Column(Integer, nullable=False)              # Amount in UZS (сум)
+    currency = Column(String, default="UZS")
+
+    # Payment provider: "test", "click", "payme"
+    provider = Column(String, default="test", nullable=False)
+    # External transaction ID from Click/Payme
+    transaction_id = Column(String, nullable=True, index=True)
+
+    # Status: "pending", "paid", "failed", "refunded"
+    status = Column(String, default="pending", nullable=False)
+
+    created_at = Column(DateTime(timezone=True), default=lambda: now_utc())
+    paid_at = Column(DateTime(timezone=True), nullable=True)
+
+    user = relationship("User")
+    booking = relationship("Booking")

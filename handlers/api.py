@@ -1152,3 +1152,149 @@ async def admin_bookings_api(request: Request, limit: int = Query(50, le=200)):
                 "end_time": b.end_time.isoformat() if b.end_time else None,
             })
     return {"bookings": items}
+
+
+# ============================================================
+# PAYMENT ENDPOINTS
+# ============================================================
+
+class CreatePaymentRequest(BaseModel):
+    booking_id: int
+    amount: int  # in UZS
+
+
+@router.post("/payments")
+async def create_payment(data: CreatePaymentRequest, user_data: dict = Depends(get_current_user)):
+    """Create a payment for a booking."""
+    from services.payment import payment_service
+
+    # Verify booking belongs to user
+    async with async_session_factory() as session:
+        user_result = await session.execute(select(User).where(User.tg_id == user_data["id"]))
+        user = user_result.scalars().first()
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+
+        booking_result = await session.execute(
+            select(Booking).where(
+                and_(Booking.id == data.booking_id, Booking.user_id == user.id)
+            )
+        )
+        booking = booking_result.scalars().first()
+        if not booking:
+            raise HTTPException(status_code=404, detail="Booking not found")
+
+    result = await payment_service.create_payment(
+        booking_id=data.booking_id,
+        user_id=user.id,
+        amount=data.amount,
+    )
+    return result
+
+
+@router.get("/payments/{payment_id}")
+async def get_payment_status(payment_id: int):
+    """Check payment status."""
+    from services.payment import payment_service
+    result = await payment_service.get_payment_status(payment_id)
+    if result["status"] == "not_found":
+        raise HTTPException(status_code=404, detail="Payment not found")
+    return result
+
+
+@router.post("/payments/{payment_id}/test-pay")
+async def test_pay(payment_id: int):
+    """
+    Test mode: instantly mark payment as paid.
+    Only works when PAYMENT_PROVIDER=test (default).
+    This endpoint simulates a successful payment without real money.
+    """
+    from services.payment import payment_service, PAYMENT_PROVIDER
+    import uuid
+
+    if PAYMENT_PROVIDER != "test":
+        raise HTTPException(status_code=403, detail="Test payments disabled in production")
+
+    result = await payment_service.confirm_payment(
+        payment_id=payment_id,
+        transaction_id=f"TEST-{uuid.uuid4().hex[:8].upper()}"
+    )
+    if not result.get("success"):
+        raise HTTPException(status_code=404, detail=result.get("error", "Payment error"))
+    return {"success": True, "message": "✅ Тестовый платёж успешно проведён!", **result}
+
+
+@router.post("/payments/click/callback")
+async def click_callback(request: Request):
+    """
+    Click.uz payment callback (webhook).
+    Click sends POST requests here when payment status changes.
+    Activate by setting PAYMENT_PROVIDER=click and Click credentials in env.
+    """
+    from services.payment import payment_service, CLICK_SECRET_KEY
+    import hashlib
+
+    body = await request.json()
+    logger.info("Click callback received", body=body)
+
+    # Verify Click signature
+    click_trans_id = body.get("click_trans_id")
+    merchant_trans_id = body.get("merchant_trans_id")  # Our payment_id
+    amount = body.get("amount")
+    action = body.get("action")  # 0=prepare, 1=complete
+    sign_string = body.get("sign_string")
+
+    if not all([click_trans_id, merchant_trans_id, action is not None]):
+        return {"error": -8, "error_note": "Missing parameters"}
+
+    # For action=1 (complete), confirm the payment
+    if str(action) == "1":
+        result = await payment_service.confirm_payment(
+            payment_id=int(merchant_trans_id),
+            transaction_id=str(click_trans_id),
+        )
+        return {"click_trans_id": click_trans_id, "merchant_trans_id": merchant_trans_id, "error": 0}
+
+    # action=0 (prepare) — just acknowledge
+    return {"click_trans_id": click_trans_id, "merchant_trans_id": merchant_trans_id, "error": 0}
+
+
+@router.post("/payments/payme/callback")
+async def payme_callback(request: Request):
+    """
+    Payme callback (JSON-RPC endpoint).
+    Payme sends JSON-RPC requests here.
+    Activate by setting PAYMENT_PROVIDER=payme and Payme credentials in env.
+    """
+    from services.payment import payment_service
+
+    body = await request.json()
+    method = body.get("method")
+    params = body.get("params", {})
+    rpc_id = body.get("id")
+
+    logger.info("Payme callback received", method=method)
+
+    if method == "CheckPerformTransaction":
+        # Verify the order exists
+        account = params.get("account", {})
+        order_id = account.get("order_id")
+        if order_id:
+            status = await payment_service.get_payment_status(int(order_id))
+            if status["status"] != "not_found":
+                return {"jsonrpc": "2.0", "id": rpc_id, "result": {"allow": True}}
+        return {"jsonrpc": "2.0", "id": rpc_id, "error": {"code": -31050, "message": "Order not found"}}
+
+    elif method == "PerformTransaction":
+        account = params.get("account", {})
+        order_id = account.get("order_id")
+        payme_id = params.get("id")
+        if order_id:
+            result = await payment_service.confirm_payment(
+                payment_id=int(order_id),
+                transaction_id=payme_id,
+            )
+            return {"jsonrpc": "2.0", "id": rpc_id, "result": {"state": 2}}
+        return {"jsonrpc": "2.0", "id": rpc_id, "error": {"code": -31050, "message": "Order not found"}}
+
+    return {"jsonrpc": "2.0", "id": rpc_id, "error": {"code": -32601, "message": "Method not found"}}

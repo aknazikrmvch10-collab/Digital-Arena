@@ -77,6 +77,16 @@ const TRANSLATIONS = {
         // QR Modal
         your_code: 'Ваш код',
         show_code: 'Покажите код администратору',
+
+        // Payment
+        pay_title: '💳 Оплата',
+        pay_amount: 'Сумма к оплате',
+        pay_btn: '💳 Оплатить',
+        pay_test_label: '🧪 Тестовый режим — реальные деньги не списываются',
+        pay_success: '✅ Оплата прошла успешно!',
+        pay_pending: '⏳ Ожидает оплаты',
+        pay_failed: '❌ Ошибка оплаты',
+        pay_currency: 'сум',
     },
 
     uz: {
@@ -144,6 +154,15 @@ const TRANSLATIONS = {
 
         your_code: 'Sizning kodingiz',
         show_code: 'Kodni administratorga ko\'rsating',
+
+        pay_title: '💳 To\'lov',
+        pay_amount: 'To\'lov summasi',
+        pay_btn: '💳 To\'lash',
+        pay_test_label: '🧪 Test rejimi — haqiqiy pul yechilmaydi',
+        pay_success: '✅ To\'lov muvaffaqiyatli o\'tdi!',
+        pay_pending: '⏳ To\'lov kutilmoqda',
+        pay_failed: '❌ To\'lov xatosi',
+        pay_currency: 'so\'m',
     },
 
     en: {
@@ -211,6 +230,15 @@ const TRANSLATIONS = {
 
         your_code: 'Your code',
         show_code: 'Show this code to the administrator',
+
+        pay_title: '💳 Payment',
+        pay_amount: 'Amount to pay',
+        pay_btn: '💳 Pay',
+        pay_test_label: '🧪 Test mode — no real money charged',
+        pay_success: '✅ Payment successful!',
+        pay_pending: '⏳ Awaiting payment',
+        pay_failed: '❌ Payment failed',
+        pay_currency: 'UZS',
     }
 };
 

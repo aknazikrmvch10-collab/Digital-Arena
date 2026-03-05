@@ -49,6 +49,31 @@ async def init_db():
         # Wave 3: User language preference
         ("ALTER TABLE users ADD COLUMN IF NOT EXISTS language VARCHAR DEFAULT 'ru'",
          "ALTER TABLE users ADD COLUMN language VARCHAR DEFAULT 'ru'"),
+        # Wave 4: Payments table
+        ("""CREATE TABLE IF NOT EXISTS payments (
+            id SERIAL PRIMARY KEY,
+            booking_id INTEGER NOT NULL REFERENCES bookings(id),
+            user_id INTEGER NOT NULL REFERENCES users(id),
+            amount INTEGER NOT NULL,
+            currency VARCHAR DEFAULT 'UZS',
+            provider VARCHAR DEFAULT 'test' NOT NULL,
+            transaction_id VARCHAR,
+            status VARCHAR DEFAULT 'pending' NOT NULL,
+            created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+            paid_at TIMESTAMP WITH TIME ZONE
+        )""",
+         """CREATE TABLE IF NOT EXISTS payments (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            booking_id INTEGER NOT NULL REFERENCES bookings(id),
+            user_id INTEGER NOT NULL REFERENCES users(id),
+            amount INTEGER NOT NULL,
+            currency VARCHAR DEFAULT 'UZS',
+            provider VARCHAR DEFAULT 'test' NOT NULL,
+            transaction_id VARCHAR,
+            status VARCHAR DEFAULT 'pending' NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            paid_at TIMESTAMP
+        )"""),
     ]
     
     for pg_sql, sqlite_sql in migrations:

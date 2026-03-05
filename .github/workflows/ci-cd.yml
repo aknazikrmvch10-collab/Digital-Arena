@@ -29,6 +29,15 @@ jobs:
       - name: ✅ Syntax check (no DB needed)
         run: python -m py_compile main.py handlers/api.py handlers/clubs.py background_tasks.py models.py
 
+      - name: 🧪 Run tests
+        env:
+          BOT_TOKEN: "0000000000:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+          DB_URL: "sqlite+aiosqlite:///:memory:"
+          ADMIN_IDS: "123456"
+          SECRET_KEY: "test-secret-key"
+          ALLOWED_ORIGINS: "http://localhost"
+        run: python -m pytest tests/ -v --tb=short
+
   # 🔥 Step 2: Auto-deploy Frontend to Firebase Hosting
   deploy-firebase:
     name: 🔥 Deploy Frontend to Firebase

@@ -21,6 +21,20 @@ from keyboards.main import get_main_menu, get_main_reply_keyboard
 configure_structlog()
 logger = get_logger(__name__)
 
+# Initialize Sentry (optional — set SENTRY_DSN env var to enable)
+_sentry_dsn = os.getenv("SENTRY_DSN")
+if _sentry_dsn:
+    try:
+        import sentry_sdk
+        sentry_sdk.init(
+            dsn=_sentry_dsn,
+            traces_sample_rate=0.3,
+            environment=os.getenv("RENDER", "local"),
+        )
+        logger.info("Sentry initialized", dsn=_sentry_dsn[:30] + "...")
+    except ImportError:
+        logger.warning("sentry-sdk not installed, skipping Sentry init")
+
 # FastAPI imports
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
