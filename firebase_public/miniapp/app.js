@@ -360,13 +360,77 @@ async function loadClubData() {
 }
 
 // --- restored: renderClubSelection ---
+let _clubsMap = null; // Yandex Map instance
+
 function renderClubSelection(clubs) {
     const grid = document.getElementById('computer-grid');
     grid.innerHTML = '';
     grid.style.gridTemplateColumns = '1fr'; // List view
     document.getElementById('zones').style.display = 'none'; // Hide filters
-    document.getElementById('club-name').textContent = "Выберите клуб";
-    document.getElementById('club-address').textContent = "Список доступных мест";
+    document.getElementById('club-name').textContent = t('select_club');
+    document.getElementById('club-address').textContent = t('available_clubs');
+
+    // Show map if any club has coordinates
+    const clubsWithCoords = clubs.filter(c => c.latitude && c.longitude);
+    const mapContainer = document.getElementById('clubs-map-container');
+
+    if (clubsWithCoords.length > 0 && typeof ymaps !== 'undefined') {
+        mapContainer.style.display = 'block';
+        ymaps.ready(() => {
+            // Destroy previous map if exists
+            if (_clubsMap) {
+                _clubsMap.destroy();
+                _clubsMap = null;
+            }
+
+            // Center on first club or Tashkent
+            const centerLat = clubsWithCoords[0].latitude;
+            const centerLng = clubsWithCoords[0].longitude;
+
+            _clubsMap = new ymaps.Map('clubs-map', {
+                center: [centerLat, centerLng],
+                zoom: 12,
+                controls: ['zoomControl']
+            });
+
+            // Add pin for each club
+            clubsWithCoords.forEach(club => {
+                const placemark = new ymaps.Placemark(
+                    [club.latitude, club.longitude],
+                    {
+                        balloonContentHeader: `<strong>${club.name}</strong>`,
+                        balloonContentBody: `${club.city}, ${club.address}<br>` +
+                            (club.free_seats !== undefined ? `🟢 ${club.free_seats} ${t('free')}` : ''),
+                        hintContent: club.name
+                    },
+                    {
+                        preset: club.venue_type === 'restaurant'
+                            ? 'islands#orangeFoodIcon'
+                            : 'islands#blueGameIcon',
+                        iconColor: '#7c3aed'
+                    }
+                );
+
+                // Click pin → go to club
+                placemark.events.add('click', () => {
+                    const newUrl = new URL(window.location.href);
+                    newUrl.searchParams.set('club_id', club.id);
+                    window.location.href = newUrl.toString();
+                });
+
+                _clubsMap.geoObjects.add(placemark);
+            });
+
+            // Fit all markers if > 1
+            if (clubsWithCoords.length > 1) {
+                _clubsMap.setBounds(_clubsMap.geoObjects.getBounds(), {
+                    checkZoomRange: true, zoomMargin: 40
+                });
+            }
+        });
+    } else {
+        mapContainer.style.display = 'none';
+    }
 
     clubs.forEach(club => {
         const card = document.createElement('div');
@@ -397,10 +461,13 @@ function renderClubSelection(clubs) {
             ? `<span class="rating-badge">⭐ ${club.avg_rating} (${club.review_count || 0})</span>`
             : '';
 
+        // Map pin indicator
+        const mapPin = (club.latitude && club.longitude) ? '📍 ' : '';
+
         card.innerHTML = `
             <div>
                 <div class="club-title">${typeIcon} ${club.name}</div>
-                <div class="club-location">${safeCity}, ${safeAddress}</div>
+                <div class="club-location">${mapPin}${safeCity}, ${safeAddress}</div>
                 <div class="club-meta">${seatsBadge} ${ratingBadge}</div>
             </div>
             <div class="club-action">➜</div>

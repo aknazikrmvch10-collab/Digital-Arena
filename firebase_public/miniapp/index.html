@@ -21,6 +21,8 @@
 
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <!-- Yandex Maps API (free, no key needed for basic usage) -->
+    <script src="https://api-maps.yandex.ru/2.1/?apikey=&lang=ru_RU" type="text/javascript"></script>
     <!-- i18n must load BEFORE app.js -->
     <script src="i18n.js?v=1"></script>
     <link rel="stylesheet" href="style.css?v=100">
@@ -111,6 +113,11 @@
         <!-- Zones Selector -->
         <div class="zones-container" id="zones">
             <!-- Zones injected by JS -->
+        </div>
+
+        <!-- Map View (Yandex Maps) -->
+        <div id="clubs-map-container" class="clubs-map-container" style="display:none;">
+            <div id="clubs-map" style="width:100%;height:250px;border-radius:16px;"></div>
         </div>
 
         <!-- Computer Grid -->

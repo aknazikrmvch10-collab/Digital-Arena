@@ -270,6 +270,8 @@ async def get_clubs(
         clubs_data = []
         for c in clubs:
             d = c.to_dict()
+            d["latitude"] = c.latitude
+            d["longitude"] = c.longitude
 
             # Live seat count: total computers minus currently booked
             total_seats = await session.scalar(
