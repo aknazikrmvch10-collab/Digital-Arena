@@ -125,7 +125,47 @@ async def verify_phone_code(req: PhoneCodeRequest):
             "user_id": auth_code.user_id,
             "full_name": user.full_name if user else None,
             "phone": phone,
+            "has_password": bool(user and user.password_hash)  # Signal to frontend if profile setup is needed
         }
+
+class CompleteProfileRequest(BaseModel):
+    full_name: str
+    password: str
+
+@router.post("/auth/complete_profile")
+async def complete_profile(req: CompleteProfileRequest, x_session_token: str = Header(None)):
+    """Complete profile (name and password) after OTP login."""
+    if not x_session_token:
+        raise HTTPException(status_code=401, detail="Missing session")
+    
+    import hashlib, uuid
+    from models import AppSession
+    
+    async with async_session_factory() as session:
+        result = await session.execute(
+            select(AppSession).where(AppSession.session_token == x_session_token)
+        )
+        app_session = result.scalar_one_or_none()
+        if not app_session:
+            raise HTTPException(status_code=401, detail="Invalid session")
+            
+        user_result = await session.execute(select(User).where(User.id == app_session.user_id))
+        user = user_result.scalar_one_or_none()
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+            
+        salt = str(uuid.uuid4())[:8]
+        pw_hash = hashlib.sha256(f"{req.password}{salt}".encode()).hexdigest()
+        
+        user.password_hash = f"{salt}${pw_hash}"
+        user.full_name = req.full_name
+        
+        # update session name too
+        app_session.full_name = req.full_name
+        
+        await session.commit()
+        
+    return {"success": True, "full_name": req.full_name}
 
 
 @router.post("/auth/logout")

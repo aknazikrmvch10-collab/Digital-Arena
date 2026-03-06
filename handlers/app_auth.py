@@ -62,9 +62,10 @@ async def handle_contact(message: Message):
 
     # Ignore if it's someone else's contact
     if contact.user_id != message.from_user.id:
+        from keyboards.main import get_main_reply_keyboard
         await message.answer(
             "⚠️ Пожалуйста, поделитесь <b>своим</b> номером телефона.",
-            reply_markup=ReplyKeyboardRemove(),
+            reply_markup=get_main_reply_keyboard(),
             parse_mode="HTML"
         )
         return
@@ -116,9 +117,9 @@ async def handle_contact(message: Message):
             f"📱 <b>Номер:</b> {phone}\n"
             f"⏰ Код действует <b>10 минут</b>.\n\n"
             f"Откройте приложение и введите:\n"
-            f"• Ваш номер телефона: <code>{phone}</code>\n"
+            f"• Введите ваш номер телефона\n"
             f"• Этот код: <code>{code}</code>",
-            reply_markup=ReplyKeyboardRemove(),
+            reply_markup=get_main_reply_keyboard(),
             parse_mode="HTML"
         )
     except Exception as e:
@@ -196,6 +197,7 @@ async def got_password_confirm(message: Message, state: FSMContext):
         f"• 📱 <b>Телефон:</b> <code>{phone}</code>\n"
         f"• 🔐 <b>Пароль:</b> ваш только что созданный пароль\n\n"
         f"Откройте приложение → вкладка «🔐 Пароль» → введите данные.",
-        parse_mode="HTML"
+        parse_mode="HTML",
+        reply_markup=get_main_reply_keyboard()
     )
 
