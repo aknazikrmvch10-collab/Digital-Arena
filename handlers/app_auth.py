@@ -20,6 +20,7 @@ from database import async_session_factory
 from models import AppAuthCode, User
 from utils.timezone import now_tashkent, now_utc
 from utils.logging import get_logger
+from keyboards.main import get_main_reply_keyboard
 
 router = Router()
 logger = get_logger(__name__)
@@ -62,7 +63,6 @@ async def handle_contact(message: Message):
 
     # Ignore if it's someone else's contact
     if contact.user_id != message.from_user.id:
-        from keyboards.main import get_main_reply_keyboard
         await message.answer(
             "⚠️ Пожалуйста, поделитесь <b>своим</b> номером телефона.",
             reply_markup=get_main_reply_keyboard(),
