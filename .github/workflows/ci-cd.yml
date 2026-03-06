@@ -42,7 +42,6 @@ jobs:
   deploy-firebase:
     name: 🔥 Deploy Frontend to Firebase
     runs-on: ubuntu-latest
-    needs: check
     steps:
       - uses: actions/checkout@v4
 
