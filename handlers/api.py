@@ -661,27 +661,68 @@ async def create_booking(booking: BookingRequest, request: Request, user_data: d
                 
                 if result.success:
                     logger.info("Booking success", booking_id=result.booking_id)
-                    # Notify club admin about new booking (fire-and-forget, non-blocking)
+                    # Notify club admin AND user (fire-and-forget, non-blocking)
                     try:
                         from main import bot as _bot
                         from background_tasks import notify_club_admin_new_booking
                         from models import Booking as _Booking
                         import asyncio as _asyncio
-                        # Load the created booking to pass to notification (use booking_id from result)
+                        import datetime as _dt
+
                         new_booking_result = await session.execute(
                             select(_Booking).where(_Booking.id == int(result.booking_id))
                         )
                         new_booking = new_booking_result.scalars().first()
+
                         if new_booking:
+                            # Notify admin
                             _asyncio.create_task(
                                 notify_club_admin_new_booking(_bot, new_booking, user, club)
                             )
+
+                            # 🎉 Notify USER with beautiful confirmation
+                            try:
+                                start_local = new_booking.start_time + _dt.timedelta(hours=5)
+                                end_local = start_local + _dt.timedelta(minutes=booking.duration_minutes)
+                                dur_h = booking.duration_minutes // 60
+                                dur_m = booking.duration_minutes % 60
+                                dur_str = f"{dur_h}ч {dur_m}мин" if dur_m else f"{dur_h}ч"
+                                if dur_h == 0:
+                                    dur_str = f"{dur_m} мин"
+                                item_name = getattr(item, 'name', f'#{booking.computer_id}')
+                                zone_name = getattr(item, 'zone', '')
+                                price_per_hour = getattr(item, 'price_per_hour', 0)
+                                price_total = int((booking.duration_minutes / 60) * price_per_hour)
+
+                                confirm_msg = (
+                                    f"✅ <b>Бронь подтверждена!</b>\n\n"
+                                    f"🏢 <b>Клуб:</b> {club.name}\n"
+                                    f"💻 <b>Место:</b> {item_name}" + (f" ({zone_name})" if zone_name else "") + "\n"
+                                    f"📅 <b>Дата:</b> {start_local.strftime('%d.%m.%Y')}\n"
+                                    f"⏰ <b>Время:</b> {start_local.strftime('%H:%M')} — {end_local.strftime('%H:%M')}\n"
+                                    f"⏱ <b>Длительность:</b> {dur_str}\n"
+                                    f"💰 <b>Сумма:</b> {price_total:,} сум\n\n"
+                                    f"🎫 <b>ID брони:</b> #{result.booking_id}\n\n"
+                                    f"👉 Покажите QR-код на входе в клуб!\n"
+                                    f"📱 Открыть бронь: /my"
+                                )
+                                _asyncio.create_task(
+                                    _bot.send_message(
+                                        chat_id=user.tg_id,
+                                        text=confirm_msg,
+                                        parse_mode="HTML"
+                                    )
+                                )
+                            except Exception as _ue:
+                                logger.warning("Could not notify user about booking", error=str(_ue))
+
                     except Exception as _e:
-                        logger.warning("Could not notify club admin", error=str(_e))
+                        logger.warning("Could not send booking notifications", error=str(_e))
+
                     # Transaction will auto-commit at end of 'async with session.begin()'
                     return {
-                        "success": True, 
-                        "message": result.message, 
+                        "success": True,
+                        "message": result.message,
                         "booking_id": result.booking_id
                     }
                 else:
