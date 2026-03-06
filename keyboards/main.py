@@ -3,23 +3,22 @@ from typing import List
 from models import Club
 
 def get_main_menu() -> InlineKeyboardMarkup:
-    """Main menu keyboard."""
+    """Main inline menu keyboard."""
     buttons = [
-        [InlineKeyboardButton(text="🔍 Найти клубы", callback_data="find_clubs")],
-        [InlineKeyboardButton(text="📋 Мои брони", callback_data="my_bookings")],
-        [InlineKeyboardButton(text="⚙️ Настройки", callback_data="settings")],
+        [InlineKeyboardButton(text="🏢 Найти клуб", callback_data="find_clubs")],
+        [InlineKeyboardButton(text="📅 Мои брони", callback_data="my_bookings")],
+        [InlineKeyboardButton(text="📱 Приложение", callback_data="open_app")],
         [InlineKeyboardButton(text="ℹ️ О боте", callback_data="about")],
     ]
     return InlineKeyboardMarkup(inline_keyboard=buttons)
 
 def get_main_reply_keyboard():
-    """Persistent main menu keyboard."""
+    """Persistent main menu keyboard — clean 4-button layout."""
     from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
-    
+
     buttons = [
-        [KeyboardButton(text="🏢 Клубы"), KeyboardButton(text="👤 Мои брони")],
-        [KeyboardButton(text="📱 Приложение"), KeyboardButton(text="⚙️ Настройки")],
-        [KeyboardButton(text="🆘 Помощь")]
+        [KeyboardButton(text="🏢 Найти клуб"), KeyboardButton(text="📅 Мои брони")],
+        [KeyboardButton(text="📱 Приложение"), KeyboardButton(text="🙋‍♂️ Помощь")],
     ]
     return ReplyKeyboardMarkup(keyboard=buttons, resize_keyboard=True)
 

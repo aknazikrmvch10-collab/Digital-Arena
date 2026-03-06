@@ -14,7 +14,7 @@ from utils.telegram_helpers import safe_delete
 
 router = Router()
 
-@router.message(F.text == "🏢 Клубы")
+@router.message(F.text == "🏢 Найти клуб")
 @router.callback_query(F.data == "find_clubs")
 async def show_clubs_list(event: Message | CallbackQuery):
     """Show all available clubs."""
@@ -54,7 +54,7 @@ async def back_to_main(callback: CallbackQuery):
         parse_mode="HTML"
     )
 
-@router.message(F.text == "👤 Мои брони")
+@router.message(F.text == "📅 Мои брони")
 @router.callback_query(F.data == "my_bookings")
 async def show_my_bookings(event: Message | CallbackQuery):
     """Show user's bookings."""

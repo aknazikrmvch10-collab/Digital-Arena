@@ -119,36 +119,23 @@ async def command_start_handler(message: Message) -> None:
         
         # Check if age is confirmed
         if not user.age_confirmed:
-            # Show age verification
             age_keyboard = InlineKeyboardMarkup(inline_keyboard=[
-                [InlineKeyboardButton(text="✅ Мне есть 18 лет", callback_data="confirm_age_18")]
+                [InlineKeyboardButton(text="✅ Мне есть 18+ — войти!", callback_data="confirm_age_18")]
             ])
-            
-            await message.answer(
-                f"👋 <b>Добро пожаловать, {message.from_user.full_name}!</b>\n\n"
-                "⚠️ <b>Важное уведомление:</b>\n\n"
-                "Согласно законодательству Республики Узбекистан, услуги компьютерных клубов "
-                "предоставляются лицам, достигшим 18 лет.\n\n"
-                "Используя данного бота, вы подтверждаете, что вам исполнилось 18 лет.",
+            await message.answer_photo(
+                photo="https://i.imgur.com/8Km9tLL.jpeg",  # Digital Arena banner
+                caption=(
+                    f"🎮 <b>Digital Arena</b> — Бронируй Умно!\n\n"
+                    f"👋 Привет, <b>{message.from_user.full_name}</b>!\n\n"
+                    "❌ Доступ ограничен по возрасту. Согласно за\n"
+                    "законодательству Узбекистана, сервис\n"
+                    "доступен только лицам старше 18 лет."
+                ),
                 reply_markup=age_keyboard,
                 parse_mode="HTML"
             )
         else:
-            # Check if user came from website with deep link
-            if deep_link and deep_link.startswith("book_"):
-                try:
-                    club_id = int(deep_link.split("_")[1])
-                    await message.answer(
-                        f"👋 <b>С возвращением, {message.from_user.full_name}!</b>\n\n"
-                        "Нажмите «🏢 Клубы» чтобы выбрать клуб и забронировать место!",
-                        reply_markup=get_main_reply_keyboard(),
-                        parse_mode="HTML"
-                    )
-                    return
-                except (ValueError, IndexError):
-                    pass  # Invalid parameter, show normal menu
-            
-            # Check if phone is missing — prompt immediately!
+            # Check if phone is missing — prompt for it
             if not user.phone:
                 from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
                 phone_keyboard = ReplyKeyboardMarkup(
@@ -160,22 +147,32 @@ async def command_start_handler(message: Message) -> None:
                     one_time_keyboard=True
                 )
                 await message.answer(
-                    f"👋 <b>Добро пожаловать, {message.from_user.full_name}!</b>\n\n"
-                    "📱 <b>Укажите номер телефона</b>, чтобы:\n"
-                    "• Входить на <b>сайт</b> Digital Arena\n"
+                    f"🎮 <b>Digital Arena</b> — до свидания!\n\n"
+                    f"👋 Привет, <b>{message.from_user.full_name}</b>!\n\n"
+                    "📱 Поделитесь номером, чтобы:\n"
+                    "• Войти в приложение с любого устройства\n"
                     "• Получать уведомления о бронях\n"
-                    "• Связь с администратором клуба\n\n"
+                    "• Быстрая связь с администратором\n\n"
                     "👇 <b>Нажмите кнопку ниже:</b>",
                     reply_markup=phone_keyboard,
                     parse_mode="HTML"
                 )
                 return
-            
-            # Show main menu for verified users with phone
+
+            # Returning user with full profile
+            if deep_link and deep_link.startswith("book_"):
+                await message.answer(
+                    f"👋 <b>С возвращением, {message.from_user.full_name}!</b>\n\n"
+                    "Жми «🏢 Найти клуб», чтобы забронировать место!",
+                    reply_markup=get_main_reply_keyboard(),
+                    parse_mode="HTML"
+                )
+                return
+
             await message.answer(
-                f"👋 <b>С возвращением, {message.from_user.full_name}!</b>\n\n"
-                "Я — Универсальный бот для бронирования компьютерных клубов Узбекистана.\n"
-                "Находите и бронируйте компьютеры в любом клубе через меня!",
+                f"🎮 <b>Digital Arena</b> — Бронируй Умно!\n\n"
+                f"👋 С возвращением, <b>{message.from_user.full_name}</b>! 👏\n\n"
+                "📌 Что могу сделать:",
                 reply_markup=get_main_reply_keyboard(),
                 parse_mode="HTML"
             )
