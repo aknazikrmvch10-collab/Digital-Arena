@@ -24,8 +24,8 @@
     <!-- Yandex Maps API (free, no key needed for basic usage) -->
     <script src="https://api-maps.yandex.ru/2.1/?apikey=&lang=ru_RU" type="text/javascript"></script>
     <!-- i18n must load BEFORE app.js -->
-    <script src="i18n.js?v=1"></script>
-    <link rel="stylesheet" href="style.css?v=100">
+    <script src="i18n.js?v=2"></script>
+    <link rel="stylesheet" href="style.css?v=102">
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
 
     <!-- PWA: Service Worker Registration (auto-updates) -->
@@ -68,49 +68,48 @@
 
             <!-- Auth mode tabs -->
             <div class="auth-tabs" style="display:flex; gap:6px; margin-bottom:18px;">
-                <button class="auth-tab active" id="tab-otp" onclick="switchAuthTab('otp')">🔑 Код из бота</button>
-                <button class="auth-tab" id="tab-login" onclick="switchAuthTab('login')">🔐 Пароль</button>
-                <button class="auth-tab" id="tab-register" onclick="switchAuthTab('register')">✏️ Регистрация</button>
+                <button class="auth-tab active" id="tab-otp" onclick="switchAuthTab('otp')">📱 Вход по СМС /
+                    Регистрация</button>
+                <button class="auth-tab" id="tab-login" onclick="switchAuthTab('login')">🔐 Вход по Паролю</button>
             </div>
 
             <!-- OTP Tab -->
             <div id="auth-panel-otp" class="auth-form">
                 <p style="font-size:13px;opacity:0.7;margin-bottom:10px;">Введите номер телефона и код из Telegram-бота
+                    @DigitalArenaBot
                 </p>
                 <input type="tel" id="auth-phone" class="auth-input" placeholder="+998901234567" autocomplete="tel">
                 <input type="text" id="auth-code" class="auth-input" placeholder="Код из бота (6 цифр)" maxlength="6"
                     inputmode="numeric">
-                <button id="auth-submit-btn" class="auth-btn" onclick="submitPhoneCode()">🔐 Войти</button>
+                <button id="auth-submit-btn" class="auth-btn" onclick="submitPhoneCode()">🔐 Продолжить</button>
             </div>
 
             <!-- Password Login Tab -->
             <div id="auth-panel-login" class="auth-form" style="display:none;">
-                <p style="font-size:13px;opacity:0.7;margin-bottom:10px;">Войдите с любого устройства</p>
+                <p style="font-size:13px;opacity:0.7;margin-bottom:10px;">Для старых пользователей</p>
                 <input type="tel" id="login-phone" class="auth-input" placeholder="+998901234567" autocomplete="tel">
                 <input type="password" id="login-password" class="auth-input" placeholder="Пароль"
                     autocomplete="current-password">
                 <button class="auth-btn" onclick="submitPasswordLogin()">🔓 Войти</button>
             </div>
 
-            <!-- Register Tab -->
-            <div id="auth-panel-register" class="auth-form" style="display:none;">
-                <p style="font-size:13px;opacity:0.7;margin-bottom:10px;">Создайте аккаунт для входа с любого устройства
+            <!-- Complete Profile Tab (Hidden, shown via JS) -->
+            <div id="auth-panel-complete" class="auth-form" style="display:none;">
+                <p style="font-size:13px;opacity:0.9; color: var(--success); margin-bottom:10px;">✅ Номер подтверждён.
+                    Заполните профиль:
                 </p>
-                <input type="text" id="reg-name" class="auth-input" placeholder="Ваше имя" autocomplete="name">
-                <input type="tel" id="reg-phone" class="auth-input" placeholder="+998901234567" autocomplete="tel">
-                <input type="password" id="reg-password" class="auth-input" placeholder="Пароль (минимум 6 символов)"
+                <input type="text" id="complete-name" class="auth-input" placeholder="Своё Имя и Фамилию"
+                    autocomplete="name">
+                <input type="password" id="complete-password" class="auth-input"
+                    placeholder="Придумайте пароль (от 6 симв.)" autocomplete="new-password">
+                <input type="password" id="complete-password-confirm" class="auth-input" placeholder="Повторите пароль"
                     autocomplete="new-password">
-                <input type="password" id="reg-password2" class="auth-input" placeholder="Повторите пароль"
-                    autocomplete="new-password">
-                <button class="auth-btn" style="background:linear-gradient(135deg,#10b981,#059669);"
-                    onclick="submitRegister()">✅ Создать аккаунт</button>
+                <button id="auth-complete-btn" class="auth-btn"
+                    style="background:linear-gradient(135deg,#10b981,#059669);" onclick="submitCompleteProfile()">🏁
+                    Завершить</button>
             </div>
 
             <p id="auth-error" class="auth-error" style="display:none;"></p>
-
-            <p class="auth-hint" style="font-size:11px;opacity:0.5;margin-top:8px;">
-                Код из бота: нажмите «📱 Приложение» в @DigitalArenaBot
-            </p>
 
             <button id="pwa-install-btn" class="auth-btn"
                 style="display: none; background: linear-gradient(135deg, #10b981, #059669); margin-top: 12px;"
@@ -134,6 +133,9 @@
             <p id="club-address">
                 <span class="change-club-link" onclick="goBackToClubs()" data-i18n="change_club">(Сменить)</span>
             </p>
+            <button id="pwa-install-banner" class="auth-btn"
+                style="display: none; background: linear-gradient(135deg, #10b981, #059669); margin-top: 15px; padding: 10px; font-size: 14px;"
+                onclick="installPWA()">📥 Установить Приложение</button>
         </div>
 
         <!-- Zones Selector -->
@@ -204,7 +206,7 @@
             <div class="info-section-card">
                 <div class="info-section-icon">📞</div>
                 <div class="info-section-title" data-i18n="info_contact_title">Контакты</div>
-                <a href="tel:+998901234567" class="info-contact-link" data-i18n="info_phone">+998 90 123 45 67</a>
+                <a href="tel:+998507474934" class="info-contact-link" data-i18n="info_phone">+998 50 747 49 34</a>
                 <a href="https://t.me/ArenaSlotBot" class="info-contact-link" target="_blank"
                     data-i18n="info_telegram">Телеграм-бот: @ArenaSlotBot</a>
             </div>
@@ -216,13 +218,12 @@
                 <p class="info-section-text" data-i18n="info_how_text">
                     Посмотрите короткое видео ниже, чтобы узнать, как забронировать место за 1 минуту.
                 </p>
-                <!-- YouTube demo video embed — replace VIDEO_ID with real ID when available -->
+                <!-- Local demo video replace -->
                 <div class="info-video-wrapper">
-                    <iframe src="https://www.youtube.com/embed/dQw4w9WgXcQ" title="Digital Arena — How to Book"
-                        frameborder="0"
-                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                        allowfullscreen loading="lazy">
-                    </iframe>
+                    <video controls style="width: 100%; border-radius: 12px; margin-top: 10px;" poster="icon-192.png">
+                        <source src="booking-guide.mp4" type="video/mp4">
+                        Ваш браузер не поддерживает видео.
+                    </video>
                 </div>
             </div>
 
@@ -391,7 +392,7 @@
         </div>
     </div>
 
-    <script src="app.js?v=115"></script>
+    <script src="app.js?v=118"></script>
 </body>
 
 </html>

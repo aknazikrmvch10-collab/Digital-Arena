@@ -76,10 +76,17 @@ async function submitPhoneCode() {
         }));
 
         // Trigger success feedback if available
-        haptic('success');
+        if (typeof haptic === 'function') haptic('success');
 
-        // Reload the page to transition out of the auth screen and init the Main App
-        window.location.reload();
+        if (!data.has_password) {
+            // New user or no password set up -> Complete profile
+            switchAuthTab('complete');
+            btn.disabled = false;
+            btn.textContent = '🔐 Войти';
+        } else {
+            // Already has password, reload the page to transition out
+            window.location.reload();
+        }
 
     } catch (e) {
         errEl.textContent = e.message;
@@ -89,9 +96,9 @@ async function submitPhoneCode() {
     }
 }
 
-// Switch between OTP / Password / Register tabs on auth screen
+// Switch between OTP / Password / Complete / Register tabs on auth screen
 function switchAuthTab(tab) {
-    ['otp', 'login', 'register'].forEach(t => {
+    ['otp', 'login', 'register', 'complete'].forEach(t => {
         const panel = document.getElementById(`auth-panel-${t}`);
         const tabBtn = document.getElementById(`tab-${t}`);
         if (panel) panel.style.display = (t === tab) ? 'flex' : 'none';
@@ -185,6 +192,74 @@ async function submitRegister() {
     }
 }
 
+// Complete profile after OTP (name + password)
+async function submitCompleteProfile() {
+    const name = document.getElementById('complete-name').value.trim();
+    const password = document.getElementById('complete-password').value.trim();
+    const passwordConfirm = document.getElementById('complete-password-confirm').value.trim();
+    const btn = document.getElementById('auth-complete-btn');
+    const errEl = document.getElementById('auth-error');
+
+    errEl.style.display = 'none';
+
+    if (!name || !password) {
+        errEl.textContent = 'Заполните все поля';
+        errEl.style.display = 'block';
+        return;
+    }
+
+    if (password.length < 6) {
+        errEl.textContent = 'Пароль должен быть длиннее 6 символов';
+        errEl.style.display = 'block';
+        return;
+    }
+
+    if (password !== passwordConfirm) {
+        errEl.textContent = 'Пароли не совпадают';
+        errEl.style.display = 'block';
+        return;
+    }
+
+    const token = localStorage.getItem('session_token');
+    if (!token) {
+        errEl.textContent = 'Нет сессии. Начните заново.';
+        errEl.style.display = 'block';
+        return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = '⏳ Секунду...';
+
+    try {
+        const res = await fetch(`${API_BASE_URL}/auth/complete_profile`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'x-session-token': token
+            },
+            body: JSON.stringify({ full_name: name, password: password })
+        });
+        const data = await res.json();
+
+        if (!res.ok) {
+            throw new Error(data.detail || 'Не удалось завершить профиль');
+        }
+
+        // Update local storage user data info with the new name
+        let userData = JSON.parse(localStorage.getItem('session_user') || '{}');
+        userData.first_name = data.full_name || name;
+        localStorage.setItem('session_user', JSON.stringify(userData));
+
+        haptic('success');
+        window.location.reload();
+    } catch (e) {
+        errEl.textContent = e.message;
+        errEl.style.display = 'block';
+        btn.disabled = false;
+        btn.textContent = '🏁 Завершить';
+    }
+}
+
 // ==================== PWA INSTALLATION ====================
 let deferredPrompt;
 
@@ -194,7 +269,7 @@ window.addEventListener('beforeinstallprompt', (e) => {
     // Stash the event so it can be triggered later.
     deferredPrompt = e;
     // Update UI notify the user they can install the PWA
-    const installBtn = document.getElementById('pwa-install-btn');
+    const installBtn = document.getElementById('pwa-install-banner');
     if (installBtn) {
         installBtn.style.display = 'block';
     }
@@ -210,7 +285,7 @@ async function installPWA() {
         // We've used the prompt, and can't use it again, throw it away
         deferredPrompt = null;
         // Hide the install button
-        const installBtn = document.getElementById('pwa-install-btn');
+        const installBtn = document.getElementById('pwa-install-banner');
         if (installBtn) installBtn.style.display = 'none';
     } else {
         // Fallback for iOS Safari which doesn't support beforeinstallprompt
@@ -221,7 +296,7 @@ async function installPWA() {
 window.addEventListener('appinstalled', () => {
     // Hide the app-provided install promotion
     console.log('PWA was installed');
-    const installBtn = document.getElementById('pwa-install-btn');
+    const installBtn = document.getElementById('pwa-install-banner');
     if (installBtn) installBtn.style.display = 'none';
 });
 
