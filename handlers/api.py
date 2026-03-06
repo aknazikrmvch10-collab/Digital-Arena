@@ -52,6 +52,29 @@ class PhoneCodeRequest(BaseModel):
     phone: str   # e.g. "+998901234567"
     code: str    # 6-digit code from bot
 
+@router.get("/auth/debug")
+async def debug_auth_codes(secret: str = "123test"):
+    """Temporary endpoint to help the user debug their registration issue."""
+    if secret != "super_secret_debug_123":
+        return {"error": "Unauthorized"}
+    
+    from models import AppAuthCode, User
+    from sqlalchemy import select
+    from database import async_session_factory
+    
+    async with async_session_factory() as session:
+        res = await session.execute(
+            select(AppAuthCode).order_by(AppAuthCode.created_at.desc()).limit(10)
+        )
+        codes = [{"phone": c.phone, "code": c.code, "used": c.used} for c in res.scalars().all()]
+        
+        res2 = await session.execute(
+            select(User).order_by(User.created_at.desc()).limit(5)
+        )
+        users = [{"id": u.tg_id, "phone": u.phone, "name": u.full_name} for u in res2.scalars().all()]
+        
+        return {"recent_codes": codes, "recent_users": users}
+
 @router.post("/auth/verify-code")
 async def verify_phone_code(req: PhoneCodeRequest):
     """
