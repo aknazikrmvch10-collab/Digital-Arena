@@ -347,6 +347,8 @@ class BookingRequest(BaseModel):
     computer_id: str
     start_time: datetime
     duration_minutes: int
+    promo_code: Optional[str] = None
+    use_balance: bool = False
     
     @field_validator('club_id')
     @classmethod
@@ -666,6 +668,35 @@ async def create_booking(booking: BookingRequest, request: Request, user_data: d
                 if not item:
                     raise HTTPException(status_code=404, detail="Computer not found")
             
+            # --- Financials & Loyalty Calculations ---
+            price_per_hour = getattr(item, 'price_per_hour', 0)
+            base_price = int((booking.duration_minutes / 60) * price_per_hour)
+            discount_amount = 0
+            
+            # Promo code logic
+            if getattr(booking, 'promo_code', None):
+                from models import PromoCode
+                promo_res = await session.execute(select(PromoCode).where(PromoCode.code == booking.promo_code.upper()))
+                promo = promo_res.scalars().first()
+                if promo and promo.is_valid():
+                    if promo.club_id is None or promo.club_id == club.id:
+                        discount_amount = int(base_price * (promo.discount_percent / 100))
+                        promo.uses_count += 1
+            
+            total_price = max(0, base_price - discount_amount)
+            
+            # Balance deduction
+            if getattr(booking, 'use_balance', False) and getattr(user, 'balance', 0) > 0:
+                deduct = min(user.balance, total_price)
+                user.balance -= deduct
+                total_price -= deduct
+            
+            # Cashback calculation
+            loyalty = getattr(user, 'loyalty_level', 'Начинающий')
+            pct = 0.05 if loyalty == 'Начинающий' else 0.10 if loyalty == 'Продвинутый' else 0.15
+            earned_points = int(total_price * pct)
+            # ----------------------------------------
+            
             # Initialize driver and reserve
             # Note: Driver's reserve_pc is now inside this transaction,
             # so its conflict checks will be protected by transaction isolation
@@ -698,6 +729,10 @@ async def create_booking(booking: BookingRequest, request: Request, user_data: d
                         new_booking = new_booking_result.scalars().first()
 
                         if new_booking:
+                            new_booking.total_price = total_price
+                            new_booking.discount_amount = discount_amount
+                            new_booking.earned_points = earned_points
+                            
                             # Notify admin
                             _asyncio.create_task(
                                 notify_club_admin_new_booking(_bot, new_booking, user, club)
@@ -714,8 +749,9 @@ async def create_booking(booking: BookingRequest, request: Request, user_data: d
                                     dur_str = f"{dur_m} мин"
                                 item_name = getattr(item, 'name', f'#{booking.computer_id}')
                                 zone_name = getattr(item, 'zone', '')
-                                price_per_hour = getattr(item, 'price_per_hour', 0)
-                                price_total = int((booking.duration_minutes / 60) * price_per_hour)
+                                
+                                discount_str = f"\n📉 <b>Скидка:</b> {discount_amount:,} сум" if discount_amount > 0 else ""
+                                pts_str = f"\n🎁 <b>Кешбэк:</b> +{earned_points} баллов" if earned_points > 0 else ""
 
                                 confirm_msg = (
                                     f"✅ <b>Бронь подтверждена!</b>\n\n"
@@ -724,7 +760,7 @@ async def create_booking(booking: BookingRequest, request: Request, user_data: d
                                     f"📅 <b>Дата:</b> {start_local.strftime('%d.%m.%Y')}\n"
                                     f"⏰ <b>Время:</b> {start_local.strftime('%H:%M')} — {end_local.strftime('%H:%M')}\n"
                                     f"⏱ <b>Длительность:</b> {dur_str}\n"
-                                    f"💰 <b>Сумма:</b> {price_total:,} сум\n\n"
+                                    f"💰 <b>Сумма к оплате:</b> {total_price:,} сум{discount_str}{pts_str}\n\n"
                                     f"🎫 <b>ID брони:</b> #{result.booking_id}\n\n"
                                     f"👉 Покажите QR-код на входе в клуб!\n"
                                     f"📱 Открыть бронь: /my"
@@ -1567,3 +1603,85 @@ async def payme_callback(request: Request):
         return {"jsonrpc": "2.0", "id": rpc_id, "error": {"code": -31050, "message": "Order not found"}}
 
     return {"jsonrpc": "2.0", "id": rpc_id, "error": {"code": -32601, "message": "Method not found"}}
+
+
+# ===================== BAR / SNACKS =====================
+
+class BarOrderRequest(BaseModel):
+    club_id: int
+    pc_name: str
+    items: List[dict] # [{"id": 1, "name": "Cola", "qty": 2, "price": 10000}]
+    total_price: int
+
+@router.get("/bar/items")
+async def get_bar_items(club_id: Optional[int] = None):
+    """Get list of active bar items for a club."""
+    from models import BarItem
+    async with async_session_factory() as session:
+        # Items that belong to all clubs (club_id=None) or specific club
+        filters = [BarItem.is_available == True]
+        if club_id is not None:
+            from sqlalchemy import or_
+            filters.append(or_(BarItem.club_id == None, BarItem.club_id == club_id))
+        else:
+            filters.append(BarItem.club_id == None)
+            
+        result = await session.execute(select(BarItem).where(*filters).order_by(BarItem.category, BarItem.name))
+        items = result.scalars().all()
+        
+        return [
+            {
+                "id": i.id,
+                "name": i.name,
+                "category": i.category,
+                "price": i.price,
+                "image_url": i.image_url
+            } for i in items
+        ]
+
+@router.post("/bar/order")
+async def create_bar_order(order_req: BarOrderRequest, user_data: dict = Depends(get_current_user)):
+    """Place a new bar order to be delivered to a PC."""
+    from models import BarOrder
+    import asyncio as _asyncio
+    
+    async with async_session_factory() as session:
+        async with session.begin():
+            order = BarOrder(
+                user_id=user_data["id"],
+                club_id=order_req.club_id,
+                pc_name=order_req.pc_name,
+                items=order_req.items,
+                total_price=order_req.total_price,
+            )
+            session.add(order)
+            await session.flush()
+            await session.refresh(order)
+            
+            # Find club to notify admin
+            club = await session.get(Club, order_req.club_id)
+            user = await session.get(User, user_data["id"])
+            
+            if club and getattr(club, 'club_admin_tg_ids', None):
+                admin_ids = [int(x.strip()) for x in club.club_admin_tg_ids.split(",") if x.strip().isdigit()]
+                
+                # Format items string
+                items_str = "\n".join([f"• {i['name']} (x{i['qty']}) — {i['price']*i['qty']:,} сум" for i in order_req.items])
+                
+                text = (
+                    f"🌭 <b>Новый заказ в Бар!</b>\n\n"
+                    f"💻 <b>Куда:</b> {order_req.pc_name}\n"
+                    f"👤 <b>Кто:</b> {getattr(user, 'full_name', '—')}\n\n"
+                    f"📦 <b>Заказ:</b>\n{items_str}\n\n"
+                    f"💰 <b>Итого:</b> {order_req.total_price:,} сум\n"
+                    f"🛒 <i>Номер заказа: #{order.id}</i>"
+                )
+                
+                from main import bot as _bot
+                for admin_tg_id in admin_ids:
+                    try:
+                         _asyncio.create_task(_bot.send_message(chat_id=admin_tg_id, text=text, parse_mode="HTML"))
+                    except Exception as e:
+                        logger.warning("Failed to notify admin about bar order", admin=admin_tg_id, error=str(e))
+                        
+        return {"success": True, "order_id": order.id, "message": "Заказ оформлен! Ожидайте доставку 🏃‍♂️"}

@@ -94,7 +94,20 @@ async def check_auto_complete_bookings():
                     
                     for booking in bookings:
                         booking.status = "COMPLETED"
-                        logger.info("Auto-completed booking", booking_id=booking.id)
+                        
+                        # Add loyalty points to user
+                        if getattr(booking, 'earned_points', 0) > 0:
+                            user = await session.get(User, booking.user_id)
+                            if user:
+                                user.bonus_points += booking.earned_points
+                                
+                                # Evaluate level up
+                                if user.bonus_points >= 100000:
+                                    user.loyalty_level = "Pro"
+                                elif user.bonus_points >= 20000:
+                                    user.loyalty_level = "Продвинутый"
+                                    
+                        logger.info("Auto-completed booking", booking_id=booking.id, points=getattr(booking, 'earned_points', 0))
                     
                     if bookings:
                         await session.commit()

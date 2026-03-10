@@ -82,6 +82,14 @@ async def show_profile(event: Message):
         phone = user.phone if user.phone else "Не указан"
         text += f"📱 Телефон: {phone}\n\n"
         
+        level = getattr(user, 'loyalty_level', 'Начинающий')
+        points = getattr(user, 'bonus_points', 0)
+        balance = getattr(user, 'balance', 0)
+        
+        text += f"🏆 <b>Уровень:</b> {level}\n"
+        text += f"🎁 <b>Кешбэк баллы:</b> {points} ед.\n"
+        text += f"💰 <b>Кошелек:</b> {balance:,} сум\n\n"
+        
         if not bookings:
             text += "📭 <b>У вас нет активных бронирований.</b>\n\n"
             text += "Чтобы забронировать место, нажмите кнопку «🏢 Клубы» или откройте Mini App!"

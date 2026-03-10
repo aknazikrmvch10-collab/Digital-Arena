@@ -27,6 +27,11 @@ class User(Base):
     referral_code = Column(String, unique=True, nullable=True, index=True)
     referred_by = Column(Integer, ForeignKey("users.id"), nullable=True)
     referral_bonus_used = Column(Boolean, default=False)
+    
+    # Loyalty and Finance
+    loyalty_level = Column(String, default="Начинающий") # Начинающий, Продвинутый, Pro
+    bonus_points = Column(Integer, default=0) # Accumulated cashback points
+    balance = Column(Integer, default=0) # Real money balance deposited
 
     # Password-based auth (for multi-device login without Telegram)
     password_hash = Column(String, nullable=True)
@@ -182,6 +187,12 @@ class Booking(Base):
     confirmation_code = Column(String, nullable=True) # Unique code for check-in
     check_timeout = Column(Boolean, default=False)
     notification_sent = Column(Boolean, default=False)
+    
+    # Financials and Loyalty
+    total_price = Column(Integer, nullable=True)     # Final price after discounts
+    discount_amount = Column(Integer, default=0)     # Amount discounted by promo
+    earned_points = Column(Integer, default=0)       # Cashback points to be awarded on completion
+    
     created_at = Column(DateTime(timezone=True), default=lambda: now_utc())
 
     user = relationship("User", back_populates="bookings")
@@ -313,3 +324,37 @@ class Payment(Base):
 
     user = relationship("User")
     booking = relationship("Booking")
+
+
+# ====================== PWA BAR (SNACKS & DRINKS) ======================
+
+class BarItem(Base):
+    """Items available for order to the PC."""
+    __tablename__ = "bar_items"
+
+    id = Column(Integer, primary_key=True, index=True)
+    club_id = Column(Integer, ForeignKey("clubs.id"), nullable=True) # None = all clubs in chain
+    name = Column(String, nullable=False)
+    category = Column(String, default="Напитки") # e.g. Напитки, Снеки, Горячее
+    price = Column(Integer, nullable=False)
+    image_url = Column(String, nullable=True)
+    is_available = Column(Boolean, default=True)
+
+    club = relationship("Club")
+
+
+class BarOrder(Base):
+    """An order placed by a user to be delivered to their PC."""
+    __tablename__ = "bar_orders"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    club_id = Column(Integer, ForeignKey("clubs.id"), nullable=False)
+    pc_name = Column(String, nullable=False) # e.g. "VIP-5"
+    items = Column(JSON, nullable=False)     # list of dicts: [{"id": 1, "name": "Cola", "qty": 2, "price": 10000}]
+    total_price = Column(Integer, nullable=False)
+    status = Column(String, default="NEW")   # "NEW", "DELIVERED", "CANCELLED"
+    created_at = Column(DateTime(timezone=True), default=lambda: now_utc())
+
+    user = relationship("User")
+    club = relationship("Club")

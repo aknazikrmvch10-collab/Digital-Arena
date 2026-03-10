@@ -1391,6 +1391,7 @@ function switchTab(tab) {
     // Load content for the tab
     if (tab === 'bookings') renderBookingsTab();
     if (tab === 'profile') renderProfileTab();
+    if (tab === 'bar') renderBarTab();
 }
 
 async function renderBookingsTab() {
@@ -1623,3 +1624,190 @@ checkAuthAndInit().then(isAuthenticated => {
         initApp();
     }
 });
+
+
+// ======================================================
+// Bar / Snacks Shop Logic
+// ======================================================
+
+let barItems = [];
+let cart = {}; // itemId -> { item, qty }
+let isCartOpen = false;
+
+async function renderBarTab() {
+    const list = document.getElementById('bar-items-list');
+    list.innerHTML = '<p style="text-align:center;color:rgba(255,255,255,0.4)" data-i18n="loading">Загрузка...</p>';
+
+    try {
+        let url = `${API_BASE_URL}/bar/items`;
+        if (currentClubId) url += `?club_id=${currentClubId}`;
+
+        const res = await fetch(url, { headers: { 'ngrok-skip-browser-warning': 'true' } });
+        if (!res.ok) throw new Error('Ошибка загрузки меню');
+
+        barItems = await res.json();
+
+        if (barItems.length === 0) {
+            list.innerHTML = '<p style="text-align:center;color:rgba(255,255,255,0.4)">В этом клубе пока нет меню</p>';
+            return;
+        }
+
+        list.innerHTML = barItems.map(item => `
+            <div style="background:var(--card-bg); border-radius:16px; overflow:hidden; border:1px solid rgba(255,255,255,0.05); display:flex; flex-direction:column;">
+                <div style="height:120px; background:rgba(0,0,0,0.5); display:flex; align-items:center; justify-content:center; overflow:hidden;">
+                    ${item.image_url ? `<img src="${item.image_url}" style="width:100%; height:100%; object-fit:cover;">` : '<span style="font-size:40px;">🍔</span>'}
+                </div>
+                <div style="padding:12px; display:flex; flex-direction:column; flex:1;">
+                    <div style="font-size:10px; color:var(--primary); font-weight:bold; margin-bottom:4px; text-transform:uppercase;">${item.category || 'Снеки'}</div>
+                    <div style="font-weight:600; font-size:14px; margin-bottom:8px; line-height:1.2; flex:1;">${item.name}</div>
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-top:auto;">
+                        <span style="font-weight:bold; color:var(--text); font-size:13px;">${item.price.toLocaleString()} сум</span>
+                        <button onclick="addToCart(${item.id})" style="background:var(--primary); border:none; color:white; width:28px; height:28px; border-radius:8px; font-weight:bold; cursor:pointer;">+</button>
+                    </div>
+                </div>
+            </div>
+        `).join('');
+
+    } catch (e) {
+        list.innerHTML = `<p style="text-align:center;color:var(--danger)">${e.message}</p>`;
+    }
+}
+
+function addToCart(itemId, delta = 1) {
+    const item = barItems.find(i => i.id === itemId);
+    if (!item) return;
+
+    if (!cart[itemId]) cart[itemId] = { item, qty: 0 };
+    cart[itemId].qty += delta;
+
+    if (cart[itemId].qty <= 0) {
+        delete cart[itemId];
+    }
+
+    updateCartUI();
+    if (typeof haptic === 'function') haptic('light');
+}
+
+function updateCartUI() {
+    const counts = Object.values(cart).reduce((sum, c) => sum + c.qty, 0);
+    const badge = document.getElementById('cart-count');
+
+    if (counts > 0) {
+        badge.style.display = 'block';
+        badge.textContent = counts;
+    } else {
+        badge.style.display = 'none';
+        if (isCartOpen) toggleCart(); // Auto close if empty
+    }
+
+    if (isCartOpen) renderCartItems();
+}
+
+function renderCartItems() {
+    const container = document.getElementById('cart-items');
+    const totalEl = document.getElementById('cart-total');
+
+    if (Object.keys(cart).length === 0) {
+        container.innerHTML = '<p style="text-align:center;color:rgba(255,255,255,0.4)">Корзина пуста</p>';
+        totalEl.textContent = '0 сум';
+        return;
+    }
+
+    let total = 0;
+    container.innerHTML = Object.values(cart).map(c => {
+        total += c.item.price * c.qty;
+        return `
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; padding-bottom:10px; border-bottom:1px solid rgba(255,255,255,0.05);">
+                <div style="flex:1;">
+                    <div style="font-size:14px; font-weight:600;">${c.item.name}</div>
+                    <div style="font-size:12px; color:rgba(255,255,255,0.6);">${c.item.price.toLocaleString()} сум</div>
+                </div>
+                <div style="display:flex; align-items:center; gap:10px;">
+                    <button onclick="addToCart(${c.item.id}, -1)" style="width:28px; height:28px; border-radius:8px; background:rgba(255,255,255,0.1); border:none; color:white;">-</button>
+                    <span style="font-weight:bold; min-width:20px; text-align:center;">${c.qty}</span>
+                    <button onclick="addToCart(${c.item.id}, 1)" style="width:28px; height:28px; border-radius:8px; background:var(--primary); border:none; color:white;">+</button>
+                </div>
+            </div>
+        `;
+    }).join('');
+
+    totalEl.textContent = `${total.toLocaleString()} сум`;
+}
+
+function toggleCart() {
+    const panel = document.getElementById('cart-panel');
+    const counts = Object.values(cart).reduce((sum, c) => sum + c.qty, 0);
+
+    if (!isCartOpen) {
+        if (counts === 0) return; // Don't open empty cart
+        panel.style.display = 'block';
+        isCartOpen = true;
+        renderCartItems();
+    } else {
+        panel.style.display = 'none';
+        isCartOpen = false;
+    }
+}
+
+async function submitBarOrder() {
+    if (Object.keys(cart).length === 0) return;
+
+    const pcName = document.getElementById('bar-pc-name').value.trim();
+    if (!pcName) {
+        alert('Пожалуйста, укажите номер вашего компьютера или столика!');
+        return;
+    }
+
+    if (!currentClubId) {
+        alert('Клуб не выбран. Перейдите в раздел "Клубы" и выберите клуб, в котором вы сейчас находитесь.');
+        return;
+    }
+
+    const items = Object.values(cart).map(c => ({
+        id: c.item.id,
+        name: c.item.name,
+        qty: c.qty,
+        price: c.item.price
+    }));
+
+    const total_price = items.reduce((sum, i) => sum + (i.qty * i.price), 0);
+    const btn = event.target;
+    const oldText = btn.innerHTML;
+    btn.innerHTML = '⏳...';
+    btn.disabled = true;
+
+    try {
+        const body = {
+            club_id: currentClubId,
+            pc_name: pcName,
+            items: items,
+            total_price: total_price
+        };
+
+        const res = await fetch(`${API_BASE_URL}/bar/order`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                ...getAuthHeaders()
+            },
+            body: JSON.stringify(body)
+        });
+
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || 'Ошибка при оформлении заказа');
+
+        alert(data.message || 'Заказ успешно оформлен! Ожидайте доставку.');
+
+        // Clear cart
+        cart = {};
+        document.getElementById('bar-pc-name').value = '';
+        toggleCart();
+        updateCartUI();
+
+    } catch (e) {
+        alert(e.message);
+    } finally {
+        btn.innerHTML = oldText;
+        btn.disabled = false;
+    }
+}
