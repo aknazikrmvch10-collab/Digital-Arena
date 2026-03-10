@@ -77,6 +77,20 @@ async def init_db():
         # Wave 6: Password-based auth (multi-device login)
         ("ALTER TABLE users ADD COLUMN IF NOT EXISTS password_hash VARCHAR",
          "ALTER TABLE users ADD COLUMN password_hash VARCHAR"),
+        # Wave 7: Bookings pricing
+        ("ALTER TABLE bookings ADD COLUMN IF NOT EXISTS total_price INTEGER DEFAULT 0",
+         "ALTER TABLE bookings ADD COLUMN total_price INTEGER DEFAULT 0"),
+        ("ALTER TABLE bookings ADD COLUMN IF NOT EXISTS discount_amount INTEGER DEFAULT 0",
+         "ALTER TABLE bookings ADD COLUMN discount_amount INTEGER DEFAULT 0"),
+        ("ALTER TABLE bookings ADD COLUMN IF NOT EXISTS earned_points INTEGER DEFAULT 0",
+         "ALTER TABLE bookings ADD COLUMN earned_points INTEGER DEFAULT 0"),
+        # Wave 8: Loyalty and Bar
+        ("ALTER TABLE users ADD COLUMN IF NOT EXISTS loyalty_level VARCHAR DEFAULT 'Начинающий'",
+         "ALTER TABLE users ADD COLUMN loyalty_level VARCHAR DEFAULT 'Начинающий'"),
+        ("ALTER TABLE users ADD COLUMN IF NOT EXISTS bonus_points INTEGER DEFAULT 0",
+         "ALTER TABLE users ADD COLUMN bonus_points INTEGER DEFAULT 0"),
+        ("ALTER TABLE users ADD COLUMN IF NOT EXISTS balance INTEGER DEFAULT 0",
+         "ALTER TABLE users ADD COLUMN balance INTEGER DEFAULT 0"),
     ]
 
     # Wave 5: Seed default Tashkent coordinates for clubs that have none
