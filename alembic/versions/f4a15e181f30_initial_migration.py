@@ -34,25 +34,25 @@ def upgrade() -> None:
     safe_drop_index('idx_booking_status_time', 'bookings')
     safe_drop_index('idx_booking_user_time', 'bookings')
     
-    # op.alter_column('computers', 'image_url',
-    #            existing_type=sa.TEXT(),
-    #            type_=sa.String(),
-    #            existing_nullable=True)
+    op.alter_column('computers', 'image_url',
+               existing_type=sa.TEXT(),
+               type_=sa.String(),
+               existing_nullable=True)
                
     safe_drop_index('idx_computer_club_active', 'computers')
     
-    # op.alter_column('restaurant_tables', 'id',
-    #            existing_type=sa.INTEGER(),
-    #            nullable=False,
-    #            autoincrement=True)
+    op.alter_column('restaurant_tables', 'id',
+               existing_type=sa.INTEGER(),
+               nullable=False,
+               autoincrement=True)
                
     safe_drop_index('idx_table_club_active', 'restaurant_tables')
     safe_drop_index('ix_restaurant_tables_club_id', 'restaurant_tables')
     
-    # op.alter_column('users', 'tg_id',
-    #            existing_type=sa.INTEGER(),
-    #            type_=sa.BigInteger(),
-    #            existing_nullable=True)
+    op.alter_column('users', 'tg_id',
+               existing_type=sa.INTEGER(),
+               type_=sa.BigInteger(),
+               existing_nullable=True)
     # ### end Alembic commands ###
 
 
