@@ -20,25 +20,22 @@ from database import Base
 import database as db_module
 
 
+from sqlalchemy.pool import StaticPool
+
 @pytest_asyncio.fixture
 async def db_session():
-    """Create an in-memory SQLite database for each test."""
-    engine = create_async_engine("sqlite+aiosqlite:///:memory:", echo=False)
-
-    async with engine.begin() as conn:
+    """Create and wipe in-memory SQLite database for each test."""
+    # Create all tables on the shared engine configured in database.py
+    async with db_module.engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
 
-    session_factory = async_sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
-
-    # Monkey-patch the global session factory so the app uses our test DB
-    original_factory = db_module.async_session_factory
-    db_module.async_session_factory = session_factory
-
-    async with session_factory() as session:
+    # Yield a session for the test
+    async with db_module.async_session_factory() as session:
         yield session
 
-    db_module.async_session_factory = original_factory
-    await engine.dispose()
+    # Teardown: drop tables so the next test is fully isolated
+    async with db_module.engine.begin() as conn:
+        await conn.run_sync(Base.metadata.drop_all)
 
 
 @pytest_asyncio.fixture

@@ -2,7 +2,15 @@ from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, Asyn
 from sqlalchemy.orm import DeclarativeBase
 from config import settings
 
-engine = create_async_engine(settings.async_db_url, echo=False)
+engine_kwargs = {"echo": False}
+if ":memory:" in settings.async_db_url:
+    from sqlalchemy.pool import StaticPool
+    engine_kwargs.update({
+        "poolclass": StaticPool,
+        "connect_args": {"check_same_thread": False}
+    })
+
+engine = create_async_engine(settings.async_db_url, **engine_kwargs)
 
 async_session_factory = async_sessionmaker(
     engine, expire_on_commit=False, class_=AsyncSession
