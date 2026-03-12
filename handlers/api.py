@@ -702,8 +702,8 @@ async def create_booking(booking: BookingRequest, request: Request, user_data: d
             # so its conflict checks will be protected by transaction isolation
             try:
                 driver = DriverFactory.get_driver(
-                    club.driver_type, 
-                    {"club_id": club.id, **club.connection_config}
+                    club.driver_type or "MOCK", 
+                    {"club_id": club.id, **(club.connection_config or {})}
                 )
                 
                 result = await driver.reserve_pc(
