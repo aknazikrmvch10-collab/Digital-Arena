@@ -172,7 +172,7 @@ async def complete_profile(req: CompleteProfileRequest, x_session_token: str = H
         if not app_session:
             raise HTTPException(status_code=401, detail="Invalid session")
             
-        user_result = await session.execute(select(User).where(User.id == app_session.user_id))
+        user_result = await session.execute(select(User).where(User.tg_id == app_session.user_id))
         user = user_result.scalar_one_or_none()
         if not user:
             raise HTTPException(status_code=404, detail="User not found")
