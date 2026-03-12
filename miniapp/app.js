@@ -1235,7 +1235,7 @@ function renderUserBookings(bookings) {
                 <span class="status-badge ${b.status.toLowerCase()}">${b.status}</span>
                 <div class="booking-action-buttons">
                     ${qrButtonHTML}
-                    ${b.status === 'CONFIRMED' ? `<button class="cancel-btn-small" onclick="cancelBooking(${b.id})">Отмена</button>` : ''}
+                    ${b.status === 'CONFIRMED' ? `<button class="cancel-btn-small" onclick="cancelBooking(event, ${b.id})">Отмена</button>` : ''}
                 </div>
             </div>
         `;
@@ -1243,7 +1243,7 @@ function renderUserBookings(bookings) {
     });
 }
 
-async function cancelBooking(bookingId) {
+async function cancelBooking(event, bookingId) {
     // 1️⃣ Confirmation (protect from accidental clicks)
     if (!confirm('❗ Вы уверены, что хотите отменить эту бронь?\n\nОтменить действие будет невозможно.')) {
         return;
@@ -1447,7 +1447,7 @@ async function renderBookingsTab() {
                     </div>
                     <div class="booking-action-buttons" style="margin-top:8px;display:flex;gap:8px">
                         ${hasQR ? `<button class="qr-btn-small" onclick="showQRCode('${b.confirmation_code}')">🎟 QR-код</button>` : ''}
-                        ${canCancel ? `<button class="cancel-btn-small" onclick="cancelBooking(${b.id})">✖ Отмена</button>` : ''}
+                        ${canCancel ? `<button class="cancel-btn-small" onclick="cancelBooking(event, ${b.id})">✖ Отмена</button>` : ''}
                     </div>
                 </div>
             `;
@@ -1640,7 +1640,7 @@ async function renderBarTab() {
 
     try {
         let url = `${API_BASE_URL}/bar/items`;
-        if (currentClubId) url += `?club_id=${currentClubId}`;
+        if (clubId) url += `?club_id=${clubId}`;
 
         const res = await fetch(url, { headers: { 'ngrok-skip-browser-warning': 'true' } });
         if (!res.ok) throw new Error('Ошибка загрузки меню');
@@ -1749,7 +1749,7 @@ function toggleCart() {
     }
 }
 
-async function submitBarOrder() {
+async function submitBarOrder(event) {
     if (Object.keys(cart).length === 0) return;
 
     const pcName = document.getElementById('bar-pc-name').value.trim();
@@ -1758,7 +1758,7 @@ async function submitBarOrder() {
         return;
     }
 
-    if (!currentClubId) {
+    if (!clubId) {
         alert('Клуб не выбран. Перейдите в раздел "Клубы" и выберите клуб, в котором вы сейчас находитесь.');
         return;
     }
@@ -1778,7 +1778,7 @@ async function submitBarOrder() {
 
     try {
         const body = {
-            club_id: currentClubId,
+            club_id: clubId,
             pc_name: pcName,
             items: items,
             total_price: total_price
