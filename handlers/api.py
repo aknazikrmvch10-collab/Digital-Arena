@@ -1084,7 +1084,7 @@ async def web_login(data: WebLoginRequest):
         user = result.scalars().first()
         
         if not user:
-            raise HTTPException(status_code=404, detail="Номер не найден. Зарегистрируйтесь через Telegram-бота @ArenaSlotBot")
+            raise HTTPException(status_code=404, detail="Номер не найден. Зарегистрируйтесь через Telegram-бота @ArenaSlot_bot")
         
         token = _make_web_token(user.id, user.tg_id)
         return {
@@ -1116,13 +1116,12 @@ async def web_me(request: Request):
 
 
 @router.get("/web/profile")
-async def web_profile(request: Request):
+async def web_profile(user_data: dict = Depends(get_current_user)):
     """Return user's profile data for the Mini App Profile tab."""
-    user_data = await get_web_user(request)
     async with async_session_factory() as session:
-        # Find by user_id (works for both Telegram and password-based users)
+        # get_current_user returns Telegram ID in "id" field
         result = await session.execute(
-            select(User).where(User.id == user_data["user_id"])
+            select(User).where(User.tg_id == user_data["id"])
         )
         user = result.scalars().first()
         if not user:
@@ -1177,7 +1176,7 @@ class LanguageUpdate(BaseModel):
 
 
 @router.post("/web/language")
-async def web_set_language(body: LanguageUpdate, request: Request):
+async def web_set_language(body: LanguageUpdate, user_data: dict = Depends(get_current_user)):
     """Update user language preference from the Mini App."""
     if body.language not in ('ru', 'uz', 'en'):
         raise HTTPException(status_code=400, detail="Invalid language. Supported: ru, uz, en")
@@ -1192,15 +1191,15 @@ async def web_set_language(body: LanguageUpdate, request: Request):
 
 
 @router.get("/web/bookings")
-async def web_user_bookings(request: Request):
+async def web_user_bookings(user_data: dict = Depends(get_current_user)):
     """Get bookings for authenticated web user."""
-    user_data = await get_web_user(request)
 
     async with async_session_factory() as session:
         result = await session.execute(
             select(Booking, Club)
             .join(Club, Booking.club_id == Club.id)
-            .where(Booking.user_id == user_data["user_id"])
+            .join(User, Booking.user_id == User.id)
+            .where(User.tg_id == user_data["id"])
             .order_by(Booking.start_time.desc())
             .limit(50)
         )
@@ -1225,16 +1224,15 @@ async def web_user_bookings(request: Request):
 
 
 @router.delete("/web/bookings/{booking_id}")
-async def web_cancel_booking(booking_id: int, request: Request):
+async def web_cancel_booking(booking_id: int, user_data: dict = Depends(get_current_user)):
     """Cancel a booking for authenticated web user."""
-    user_data = await get_web_user(request)
     
     async with async_session_factory() as session:
         result = await session.execute(
-            select(Booking).where(
+            select(Booking).join(User, Booking.user_id == User.id).where(
                 and_(
                     Booking.id == booking_id,
-                    Booking.user_id == user_data["user_id"]
+                    User.tg_id == user_data["id"]
                 )
             )
         )

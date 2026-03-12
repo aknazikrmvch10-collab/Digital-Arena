@@ -1568,8 +1568,10 @@ async function setLanguageFromApp(lang) {
             headers: { 'Content-Type': 'application/json', ...getAuthHeaders(), 'X-Telegram-Init-Data': tg.initData || '' },
             body: JSON.stringify({ tg_id: userId, language: lang })
         });
+        localStorage.setItem('appLang', lang); // Local storage update
         const labels = { ru: 'Русский 🇷🇺', uz: "O'zbek 🇺🇿", en: 'English 🇬🇧' };
         showToast(`✅ Язык изменён: ${labels[lang]}`, 'success');
+        setTimeout(() => window.location.reload(), 800); // Reload to apply i18n
     } catch (e) {
         showToast('Ошибка при смене языка', 'error');
     }
