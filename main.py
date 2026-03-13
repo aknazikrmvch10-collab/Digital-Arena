@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import sys
+import os
 from os import getenv
 
 import aiogram
@@ -187,10 +188,20 @@ async def main():
         BotCommand(command="admin", description="🔐 Админ")
     ])
     
-    await dp.start_polling(bot)
+    # Run FastAPI server and Bot Polling together
+    port = int(os.getenv("PORT", 8000))
+    config = uvicorn.Config(fastapi_app, host="0.0.0.0", port=port, log_level="info")
+    server = uvicorn.Server(config)
+    
+    logger.info(f"Starting API server on port {port} and Bot polling...")
+    
+    # Use gather to run both tasks concurrently
+    await asyncio.gather(
+        server.serve(),
+        dp.start_polling(bot)
+    )
 
 if __name__ == "__main__":
-    import asyncio
     try:
         asyncio.run(main())
     except (KeyboardInterrupt, SystemExit):

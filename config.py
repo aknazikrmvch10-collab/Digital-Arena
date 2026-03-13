@@ -5,8 +5,12 @@ class Settings(BaseSettings):
     DB_URL: str
     ADMIN_IDS: str
     BASE_URL: str = ""
-    SECRET_KEY: str  # Must be set in .env - NO DEFAULT for security!
-    ALLOWED_ORIGINS: str = ""
+    SECRET_KEY: str = "temporary-secret-key-change-it"
+    ALLOWED_ORIGINS: str = "*"
+    
+    # Optional integrations
+    SENTRY_DSN: str | None = None
+    GOV_API_TOKEN: str | None = None
     
     # Redis configuration
     REDIS_HOST: str = "localhost"
