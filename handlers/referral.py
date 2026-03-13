@@ -53,6 +53,13 @@ async def show_referral(message: Message):
         )
         invited_count = invited_count_result.scalar() or 0
 
+        # Get list of invited users
+        invited_users_result = await session.execute(
+            select(User.full_name).where(User.referred_by == user.id).limit(10)
+        )
+        invited_users = invited_users_result.scalars().all()
+        invited_list_str = "\n".join([f"• {name}" for name in invited_users]) if invited_users else "Пока никто не присоединился"
+
         bot_info = await message.bot.get_me()
         invite_link = f"https://t.me/{bot_info.username}?start=ref_{code}"
 
@@ -61,8 +68,9 @@ async def show_referral(message: Message):
             f"Приглашайте друзей — получайте бонусы!\n\n"
             f"🔑 <b>Ваш код:</b> <code>{code}</code>\n"
             f"🔗 <b>Ваша ссылка:</b>\n{invite_link}\n\n"
-            f"👥 <b>Приглашено друзей:</b> {invited_count}\n\n"
-            f"<i>✨ Когда ваш друг сделает первую бронь — вы получите 1 час бесплатно!</i>"
+            f"👥 <b>Приглашено:</b> {invited_count}\n"
+            f"📝 <b>Последние приглашенные:</b>\n{invited_list_str}\n\n"
+            f"<i>✨ Когда ваш друг забронирует ПК — вы получите 5000 бонусов!</i>"
         )
 
         keyboard = InlineKeyboardMarkup(inline_keyboard=[[

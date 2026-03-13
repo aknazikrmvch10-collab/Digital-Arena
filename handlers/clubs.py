@@ -97,16 +97,11 @@ async def show_my_bookings(event: Message | CallbackQuery):
             text = "📋 <b>Мои брони</b>\n\n"
             buttons = []
             
+        lang = user.language or 'ru'
         from utils.booking_display import render_bookings_text, build_bookings_keyboard
         
-        if not bookings:
-            text = "📋 <b>Мои брони</b>\n\nУ вас пока нет бронирований."
-            # No inline keyboard here, just send text (main menu is persistent)
-            await message.answer(text, reply_markup=get_main_menu(), parse_mode="HTML")
-            return
-            
-        text = render_bookings_text(bookings)
-        keyboard = build_bookings_keyboard(bookings)
+        text = render_bookings_text(bookings, lang=lang)
+        keyboard = build_bookings_keyboard(bookings, lang=lang)
         
         await message.answer(
             text,

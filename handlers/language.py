@@ -52,4 +52,11 @@ async def set_language(callback: CallbackQuery):
         'kz': "✅ Тіл қазақшаға өзгертілді 🇰🇿",
     }
     await callback.message.edit_text(confirmation[lang])
+    
+    from keyboards.main import get_main_reply_keyboard
+    await callback.message.answer(
+        f"🎮 <b>Digital Arena</b>\n\n{t(lang, 'start_welcome')}",
+        reply_markup=get_main_reply_keyboard(lang=lang),
+        parse_mode="HTML"
+    )
     await callback.answer()

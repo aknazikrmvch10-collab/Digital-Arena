@@ -1,9 +1,12 @@
 from aiogram import Router, F
-from aiogram.types import Message, CallbackQuery
+from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
-from sqlalchemy import select, func
+from sqlalchemy import select, func, text, or_
+import logging
+
+logger = logging.getLogger(__name__)
 
 from config import settings
 from utils.telegram_helpers import safe_edit, safe_delete
@@ -110,26 +113,28 @@ async def show_stats(callback: CallbackQuery):
             select(func.count(Booking.id)).where(Booking.created_at >= week_start)
         )
 
-        # --- Weekly Revenue — Single JOIN query (no N+1) ---
-        from sqlalchemy import case
-        week_revenue_result = await session.execute(
-            select(
-                func.sum(
-                    Computer.price_per_hour * (
-                        func.julianday(Booking.end_time) - func.julianday(Booking.start_time)
-                    ) * 24
-                ).label("revenue")
-            )
-            .select_from(Booking)
-            .join(Computer, Booking.item_id == Computer.id, isouter=True)
-            .where(
-                and_(
-                    Booking.created_at >= week_start,
-                    Booking.status.in_(["COMPLETED", "ACTIVE", "CONFIRMED"]),
-                    Computer.price_per_hour.isnot(None)
-                )
+        # --- Weekly Revenue ---
+        # PostgreSQL doesn't have julianday. We use extract epoch or direct subtraction.
+        # But we can also do this in Python since result set is small, OR use a more generic way.
+        from sqlalchemy import extract
+        revenue_query = select(
+            func.sum(
+                Computer.price_per_hour * (
+                    func.extract('epoch', Booking.end_time) - func.extract('epoch', Booking.start_time)
+                ) / 3600.0
+            ).label("revenue")
+        ).select_from(Booking).join(Computer, Booking.item_id == Computer.id, isouter=True).where(
+            and_(
+                Booking.created_at >= week_start,
+                Booking.status.in_(["COMPLETED", "ACTIVE", "CONFIRMED"]),
+                Computer.price_per_hour.isnot(None)
             )
         )
+        
+        # fallback for SQLite if needed (though user is on Postgres)
+        # if using SQLite: revenue_query = select(func.sum(Computer.price_per_hour * (func.julianday(Booking.end_time) - func.julianday(Booking.start_time)) * 24))
+        
+        week_revenue_result = await session.execute(revenue_query)
         revenue = int(week_revenue_result.scalar() or 0)
 
         # --- Reviews ---
@@ -157,8 +162,8 @@ async def show_stats(callback: CallbackQuery):
                 func.count(Booking.id).label("today_count"),
                 func.sum(
                     Computer.price_per_hour * (
-                        func.julianday(Booking.end_time) - func.julianday(Booking.start_time)
-                    ) * 24
+                        func.extract('epoch', Booking.end_time) - func.extract('epoch', Booking.start_time)
+                    ) / 3600.0
                 ).label("today_revenue")
             )
             .select_from(Club)
@@ -721,7 +726,7 @@ async def _save_club_field(message: Message, state: FSMContext, field: str, valu
             if club:
                 setattr(club, field, value)
                 
-    await dict(message=message, club_id=club_id)
+    logger.info(f"Field {field} updated for club {club_id}")
     await message.answer(f"✅ Успешно обновлено!", reply_markup=InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="Вернуться к настройкам", callback_data=f"admin_club_settings:{club_id}")]]))
 
 @router.message(ClubSettingsStates.waiting_for_desc)

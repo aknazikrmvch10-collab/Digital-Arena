@@ -1,86 +1,61 @@
 import asyncio
 import logging
-import os
 import sys
-from aiogram import Bot, Dispatcher, Router
-from aiogram.types import Message
-from aiogram.filters import CommandStart
-from sqlalchemy import select
+from os import getenv
 
-from config import settings as settings_config
+import aiogram
+from aiogram import Bot, Dispatcher, Router, F
+from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardMarkup, KeyboardButton
+from aiogram.filters import Command, CommandStart
+from sqlalchemy import select, func
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from config import settings
 from database import init_db, async_session_factory
 from seed_data import seed_test_clubs
 from aiogram.types import BotCommand
 from utils.limiter import limiter
 from slowapi.errors import RateLimitExceeded
 from slowapi import _rate_limit_exceeded_handler
-from utils.logging import configure_structlog, get_logger
-from keyboards.main import get_main_menu, get_main_reply_keyboard
+from utils.logging import get_logger
+from keyboards.main import get_main_reply_keyboard
+from i18n import t
 
-# Configure logging
-configure_structlog()
+import sentry_sdk
+if settings.SENTRY_DSN:
+    sentry_sdk.init(dsn=settings.SENTRY_DSN, traces_sample_rate=1.0)
+
+# Init Logger
 logger = get_logger(__name__)
 
-# Initialize Sentry (optional — set SENTRY_DSN env var to enable)
-_sentry_dsn = os.getenv("SENTRY_DSN")
-if _sentry_dsn:
-    try:
-        import sentry_sdk
-        sentry_sdk.init(
-            dsn=_sentry_dsn,
-            traces_sample_rate=0.3,
-            environment=os.getenv("RENDER", "local"),
-        )
-        logger.info("Sentry initialized", dsn=_sentry_dsn[:30] + "...")
-    except ImportError:
-        logger.warning("sentry-sdk not installed, skipping Sentry init")
+# Verify Bot Token
+TOKEN = settings.BOT_TOKEN
+if not TOKEN or ":" not in TOKEN:
+    logger.error("BOT_TOKEN is missing or invalid! Please check your .env file.")
+    sys.exit(1)
 
-# FastAPI imports
-from fastapi import FastAPI
+# Initialize Bot and Dispatcher
+bot = Bot(token=TOKEN)
+
+from fastapi import FastAPI, Request, Depends, HTTPException
 from fastapi.staticfiles import StaticFiles
-from handlers.api import router as api_router
-from handlers.audit import router as audit_router
-from handlers.gov import router as gov_router
-from handlers.club_admin import router as club_admin_router
+from handlers.api import api_router
+from handlers.audit import audit_router
+from handlers.gov import gov_router
+from handlers.club_admin import club_admin_router
 import uvicorn
-from models import User
-
-# Import handlers
-# Handlers are imported below (line 153) — removed duplicate import here
-
-# Initialize Bot
-bot = Bot(token=settings_config.BOT_TOKEN)
-
-# FastAPI application
-fastapi_app = FastAPI()
-fastapi_app.state.limiter = limiter
-fastapi_app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
-
-# Add CORS Middleware
-# ✅ FIX #2: allow_origins=["*"] + allow_credentials=True is forbidden by CORS spec
-# Use specific origins instead
+from models import User, Booking, Club, Admin
 from fastapi.middleware.cors import CORSMiddleware
-import os as _os
-_ALLOWED_ORIGINS = _os.getenv("ALLOWED_ORIGINS", "").split(",")
-_ALLOWED_ORIGINS = [o.strip() for o in _ALLOWED_ORIGINS if o.strip()]
-# Always include Firebase hosting origins regardless of env vars
-_FIREBASE_ORIGINS = [
-    "https://arenaslot-123ab.web.app",
-    "https://arenaslot-123ab.firebaseapp.com",
-    "https://arenaslotz.web.app",
-    "http://localhost:3000",
-    "http://localhost:8000",
-]
-for _o in _FIREBASE_ORIGINS:
-    if _o not in _ALLOWED_ORIGINS:
-        _ALLOWED_ORIGINS.append(_o)
+
+fastapi_app = FastAPI(title="Digital Arena API")
 fastapi_app.add_middleware(
     CORSMiddleware,
-    allow_origins=_ALLOWED_ORIGINS,
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
 fastapi_app.include_router(api_router, prefix="/api")
 fastapi_app.include_router(audit_router, prefix="/api")
 fastapi_app.include_router(gov_router, prefix="/api")
@@ -88,20 +63,16 @@ fastapi_app.include_router(club_admin_router, prefix="/api")
 fastapi_app.mount("/website", StaticFiles(directory="website", html=True), name="website")
 fastapi_app.mount("/miniapp", StaticFiles(directory="miniapp", html=True), name="miniapp")
 fastapi_app.mount("/", StaticFiles(directory="public", html=True), name="public")
-dp = Dispatcher()
 
-# Create start router
+dp = Dispatcher()
 start_router = Router()
 
 @start_router.message(CommandStart())
 async def command_start_handler(message: Message) -> None:
-    from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
-    
-    # Check for deep link parameter (e.g., book_{club_id})
+    # Check for deep link parameter (e.g., ref_CODE)
     args = message.text.split(maxsplit=1)
     deep_link = args[1] if len(args) > 1 else None
     
-    # Register user if not exists
     async with async_session_factory() as session:
         result = await session.execute(select(User).where(User.tg_id == message.from_user.id))
         user = result.scalars().first()
@@ -111,160 +82,116 @@ async def command_start_handler(message: Message) -> None:
                 user = User(
                     tg_id=message.from_user.id,
                     username=message.from_user.username,
-                    full_name=message.from_user.full_name
+                    full_name=message.from_user.full_name,
+                    language='ru'
                 )
                 session.add(user)
                 await session.commit()
                 await session.refresh(user)
+                
+                # Process referral if link exists
+                if deep_link and deep_link.startswith("ref_"):
+                    from handlers.referral import process_referral_on_start
+                    await process_referral_on_start(user, deep_link, session)
+                    
             except Exception as e:
                 logger.warning(f"Error creating user {message.from_user.id}: {str(e)}")
-                # User might have been created by a parallel request
                 await session.rollback()
                 result = await session.execute(select(User).where(User.tg_id == message.from_user.id))
                 user = result.scalars().first()
         
-        # Check if age is confirmed
+        lang = user.language if user and user.language else 'ru'
+        
         if not user.age_confirmed:
             age_keyboard = InlineKeyboardMarkup(inline_keyboard=[
                 [InlineKeyboardButton(text="✅ Мне есть 18+ — войти!", callback_data="confirm_age_18")]
             ])
             await message.answer_photo(
-                photo="https://i.imgur.com/8Km9tLL.jpeg",  # Digital Arena banner
+                photo="https://i.imgur.com/8Km9tLL.jpeg",
                 caption=(
-                    f"🎮 <b>Digital Arena</b> — Бронируй Умно!\n\n"
+                    f"🎮 <b>Digital Arena</b>\n\n"
                     f"👋 Привет, <b>{message.from_user.full_name}</b>!\n\n"
-                    "❌ Доступ ограничен по возрасту. Согласно за\n"
-                    "законодательству Узбекистана, сервис\n"
-                    "доступен только лицам старше 18 лет."
+                    "❌ Доступ ограничен по возрасту. Сервис доступен только лицам старше 18 лет."
                 ),
                 reply_markup=age_keyboard,
                 parse_mode="HTML"
             )
         else:
-            # Check if phone is missing — prompt for it
             if not user.phone:
-                from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
                 phone_keyboard = ReplyKeyboardMarkup(
                     keyboard=[
-                        [KeyboardButton(text="📱 Отправить номер телефона", request_contact=True)],
-                        [KeyboardButton(text="⏩ Пропустить")]
+                        [KeyboardButton(text=t(lang, 'btn_phone_share') if lang=='ru' else "📱 Share Phone", request_contact=True)],
+                        [KeyboardButton(text=t(lang, 'btn_skip') if lang=='ru' else "⏩ Skip")]
                     ],
-                    resize_keyboard=True,
-                    one_time_keyboard=True
+                    resize_keyboard=True, one_time_keyboard=True
                 )
                 await message.answer(
-                    f"🎮 <b>Digital Arena</b> — до свидания!\n\n"
-                    f"👋 Привет, <b>{message.from_user.full_name}</b>!\n\n"
-                    "📱 Поделитесь номером, чтобы:\n"
-                    "• Войти в приложение с любого устройства\n"
-                    "• Получать уведомления о бронях\n"
-                    "• Быстрая связь с администратором\n\n"
-                    "👇 <b>Нажмите кнопку ниже:</b>",
+                    f"📱 {t(lang, 'enter_phone_prompt') if lang=='ru' else 'Please share your phone number to continue:'}",
                     reply_markup=phone_keyboard,
                     parse_mode="HTML"
                 )
                 return
 
-            # Returning user with full profile
-            if deep_link and deep_link.startswith("book_"):
-                await message.answer(
-                    f"👋 <b>С возвращением, {message.from_user.full_name}!</b>\n\n"
-                    "Жми «🏢 Найти клуб», чтобы забронировать место!",
-                    reply_markup=get_main_reply_keyboard(),
-                    parse_mode="HTML"
-                )
-                return
-
+            reply_markup = get_main_reply_keyboard(lang=lang)
             await message.answer(
-                f"🎮 <b>Digital Arena</b> — Бронируй Умно!\n\n"
-                f"👋 С возвращением, <b>{message.from_user.full_name}</b>! 👏\n\n"
-                "📌 Что могу сделать:",
-                reply_markup=get_main_reply_keyboard(),
+                f"🎮 <b>Digital Arena</b>\n\n"
+                f"👋 {t(lang, 'start_welcome')}",
+                reply_markup=reply_markup,
                 parse_mode="HTML"
             )
 
-# Import handlers
+# Import and Register Handlers
 from handlers import clubs, settings, age_verification, filters, admin, webapp, users
-from handlers import referral, reviews
-from handlers import language, promo, broadcast, club_settings
-from handlers import app_auth  # Phone+Code PWA auth
+from handlers import referral, reviews, language, promo, broadcast, club_settings, app_auth
 
-
-# Register routers
-dp.include_router(admin.router) # Admin router first
-dp.include_router(webapp.router) # Web App data handler
+dp.include_router(admin.router)
+dp.include_router(webapp.router)
 dp.include_router(age_verification.router)
 dp.include_router(filters.router)
 dp.include_router(clubs.router)
 dp.include_router(settings.router)
-dp.include_router(users.router) # User profile & bookings
-dp.include_router(reviews.router) # Review callbacks
-dp.include_router(referral.router) # Referral /referral command
-dp.include_router(language.router) # Language /language command
-dp.include_router(promo.router) # Promo codes /promo command
-dp.include_router(broadcast.router) # Admin broadcast
-dp.include_router(club_settings.router) # Club settings FSM
-dp.include_router(app_auth.router)     # /myapp phone+code auth
+dp.include_router(users.router)
+dp.include_router(reviews.router)
+dp.include_router(referral.router)
+dp.include_router(language.router)
+dp.include_router(promo.router)
+dp.include_router(broadcast.router)
+dp.include_router(club_settings.router)
+dp.include_router(app_auth.router)
 dp.include_router(start_router)
 
 async def main():
-    """Main bot startup."""
-    # Initialize database
     await init_db()
-    
-    # Initialize Redis cache (graceful - won't crash if Redis unavailable)
     from services.redis_client import cache
     await cache.connect()
-    
-    # Seed test data
     await seed_test_clubs()
     
-    # Start background tasks
     from background_tasks import (
         check_no_show_bookings, check_activate_bookings,
         check_auto_complete_bookings, send_reminder_notifications,
         send_review_requests, cleanup_old_logs, keep_awake
     )
     asyncio.create_task(check_no_show_bookings())
-    asyncio.create_task(check_activate_bookings())   # CONFIRMED → ACTIVE
+    asyncio.create_task(check_activate_bookings())
     asyncio.create_task(check_auto_complete_bookings())
     asyncio.create_task(send_reminder_notifications(bot))
     asyncio.create_task(send_review_requests(bot))
-    asyncio.create_task(cleanup_old_logs())  # Delete log files older than 7 days
-    asyncio.create_task(keep_awake())        # Prevent Render from sleeping
+    asyncio.create_task(cleanup_old_logs())
+    asyncio.create_task(keep_awake())
 
-    logger.info("Bot is starting...")
-    
-    # Set bot commands
-    from aiogram.types import BotCommand
     await bot.set_my_commands([
-        BotCommand(command="start", description="🔄 Перезапустить бота"),
-        BotCommand(command="help", description="🆘 Помощь"),
-        BotCommand(command="profile", description="👤 Мой профиль"),
-        BotCommand(command="phone", description="📱 Указать номер телефона"),
-        BotCommand(command="referral", description="🎁 Реферальная программа"),
-        BotCommand(command="promo", description="🎫 Ввести промокод"),
-        BotCommand(command="language", description="🌍 Изменить язык"),
-        BotCommand(command="admin", description="🔐 Админ-панель")
+        BotCommand(command="start", description="🔄 Перезапустить"),
+        BotCommand(command="profile", description="👤 Профиль"),
+        BotCommand(command="referral", description="🎁 Рефералы"),
+        BotCommand(command="language", description="🌍 Язык"),
+        BotCommand(command="admin", description="🔐 Админ")
     ])
     
-    # Run uvicorn HTTP server AND Telegram polling CONCURRENTLY
-    # This is critical: uvicorn MUST start alongside polling so Render's
-    # health check can reach the HTTP port within the timeout window.
-    port = int(os.getenv("PORT", 8000))
-    config = uvicorn.Config(fastapi_app, host="0.0.0.0", port=port, log_level="info")
-    server = uvicorn.Server(config)
-
-    await asyncio.gather(
-        server.serve(),
-        dp.start_polling(bot),
-    )
+    await dp.start_polling(bot)
 
 if __name__ == "__main__":
-    # Safety warning when running locally (not on Render)
-    if not os.getenv("RENDER"):
-        print("\n[WARNING] If the bot is already running on Render 24/7,")
-        print("   running locally will cause a TelegramConflictError.")
-        print("   Use a DIFFERENT token in .env for local development.\n")
-    asyncio.run(main())
-
+    import asyncio
+    try:
+        asyncio.run(main())
+    except (KeyboardInterrupt, SystemExit):
+        logger.info("Bot stopped")

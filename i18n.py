@@ -1,120 +1,90 @@
-"""
-Internationalization (i18n) module for Digital Arena.
-Provides translated strings for RU, UZ, KZ languages.
-"""
-from typing import Dict
-
-TRANSLATIONS: Dict[str, Dict[str, str]] = {
+TRANSLATIONS = {
     'ru': {
-        'start_welcome': (
-            "👋 <b>Добро пожаловать в Digital Arena!</b>\n\n"
-            "🎮 Бронируй компьютеры и столики без очередей.\n\n"
-            "Выбери язык / Tilni tanlang / Тілді таңдаңыз:"
-        ),
+        'start_welcome': "Добро пожаловать в Digital Arena! Бронируйте ПК и столы без очереди.",
         'choose_language': "🌍 Выберите язык:",
-        'language_set': "✅ Язык изменён на Русский 🇷🇺",
+        'language_set': "✅ Язык изменен на русский 🇷🇺",
         'select_club': "🏢 Выберите клуб:",
         'book_now': "📅 Забронировать",
-        'my_bookings': "📋 Мои брони",
-        'settings': "⚙️ Настройки",
-        'referral': "🎁 Реферальная программа",
-        'no_bookings': "📋 У вас пока нет броней.",
-        'booking_confirmed': "✅ <b>Бронь подтверждена!</b>",
-        'booking_cancelled': "❌ Бронь отменена.",
-        'enter_promo': "🎫 Введите промокод:",
-        'promo_applied': "✅ Промокод <b>{code}</b> применён! Скидка {discount}%",
-        'promo_invalid': "❌ Промокод недействителен или истёк.",
-        'promo_already_used': "❌ Вы уже использовали этот промокод.",
-        'help_text': (
-            "🆘 <b>Помощь</b>\n\n"
-            "/start — главное меню\n"
-            "/profile — мой профиль\n"
-            "/referral — реферальная программа\n"
-            "/promo — ввести промокод\n"
-            "/settings — настройки"
-        ),
+        'my_bookings': "Мои брони",
+        'no_bookings': "📋 У вас пока нет бронирований.",
+        'booking_status': "Статус",
+        'status_confirmed': "Ожидает",
+        'status_active': "Играет",
+        'status_completed': "Завершено",
+        'status_noshow': "Не пришел",
+        'status_cancelled': "Отменено",
+        'btn_show_code': "Показать код",
+        'btn_cancel': "Отменить",
+        'btn_clear_history': "Очистить историю",
+        'btn_back': "« Назад",
+        'btn_find_clubs': "🏢 Найти клуб",
+        'btn_my_bookings': "📅 Мои брони",
+        'btn_app': "📱 Приложение",
+        'btn_help': "🙋‍♂️ Помощь",
+        'btn_about': "ℹ️ О боте",
+        'btn_phone_share': "📱 Отправить номер",
+        'btn_skip': "⏩ Пропустить",
+        'enter_phone_prompt': "📱 Пожалуйста, отправьте ваш номер телефона для продолжения:",
     },
     'uz': {
-        'start_welcome': (
-            "👋 <b>Digital Arena'ga xush kelibsiz!</b>\n\n"
-            "🎮 Kompyuter va stol bronlash navbatsiz.\n\n"
-            "Tilni tanlang:"
-        ),
+        'start_welcome': "Digital Arena'ga xush kelibsiz! Kompyuter va stollarni navbatsiz bron qiling.",
         'choose_language': "🌍 Tilni tanlang:",
         'language_set': "✅ Til o'zbekchaga o'zgartirildi 🇺🇿",
         'select_club': "🏢 Klub tanlang:",
-        'book_now': "📅 Bronlash",
-        'my_bookings': "📋 Bronlarim",
-        'settings': "⚙️ Sozlamalar",
-        'referral': "🎁 Referal dastur",
+        'book_now': "📅 Bron qilish",
+        'my_bookings': "Mening bronlarim",
         'no_bookings': "📋 Hali bronlaringiz yo'q.",
-        'booking_confirmed': "✅ <b>Bron tasdiqlandi!</b>",
-        'booking_cancelled': "❌ Bron bekor qilindi.",
-        'enter_promo': "🎫 Promokodni kiriting:",
-        'promo_applied': "✅ Promokod <b>{code}</b> qo'llandi! {discount}% chegirma",
-        'promo_invalid': "❌ Promokod yaroqsiz yoki muddati o'tgan.",
-        'promo_already_used': "❌ Siz bu promokodni allaqachon ishlatgansiz.",
-        'help_text': (
-            "🆘 <b>Yordam</b>\n\n"
-            "/start — asosiy menyu\n"
-            "/profile — mening profilim\n"
-            "/referral — referal dastur\n"
-            "/promo — promokod kiritish\n"
-            "/settings — sozlamalar"
-        ),
+        'booking_status': "Holat",
+        'status_confirmed': "Kutilmoqda",
+        'status_active': "O'yinda",
+        'status_completed': "Tugalgan",
+        'status_noshow': "Kelmagan",
+        'status_cancelled': "Bekor qilingan",
+        'btn_show_code': "Kod ko'rsatish",
+        'btn_cancel': "Bekor qilish",
+        'btn_clear_history': "Tarixni tozalash",
+        'btn_back': "« Orqaga",
+        'btn_find_clubs': "🏢 Klub tanlang",
+        'btn_my_bookings': "📅 Bronlarim",
+        'btn_app': "📱 Ilova",
+        'btn_help': "🙋‍♂️ Yordam",
+        'btn_about': "ℹ️ Bot haqida",
+        'btn_phone_share': "📱 Raqamni yuborish",
+        'btn_skip': "⏩ O'tkazib yuborish",
+        'enter_phone_prompt': "📱 Davom etish uchun iltimos telefon raqamingizni yuboring:",
     },
     'kz': {
-        'start_welcome': (
-            "👋 <b>Digital Arena-ға қош келдіңіз!</b>\n\n"
-            "🎮 Компьютер мен үстелді кезексіз брондаңыз.\n\n"
-            "Тілді таңдаңыз:"
-        ),
+        'start_welcome': "Digital Arena-ға қош келдіңіз! Компьютерлер мен үстелдерді кезексіз брондаңыз.",
         'choose_language': "🌍 Тілді таңдаңыз:",
         'language_set': "✅ Тіл қазақшаға өзгертілді 🇰🇿",
         'select_club': "🏢 Клубты таңдаңыз:",
         'book_now': "📅 Брондау",
-        'my_bookings': "📋 Брондарым",
-        'settings': "⚙️ Параметрлер",
-        'referral': "🎁 Реферал бағдарлама",
+        'my_bookings': "Менің брондарым",
         'no_bookings': "📋 Сізде әлі брондар жоқ.",
-        'booking_confirmed': "✅ <b>Брон расталды!</b>",
-        'booking_cancelled': "❌ Брон бас тартылды.",
-        'enter_promo': "🎫 Промокодты енгізіңіз:",
-        'promo_applied': "✅ Промокод <b>{code}</b> қолданылды! {discount}% жеңілдік",
-        'promo_invalid': "❌ Промокод жарамсыз немесе мерзімі өткен.",
-        'promo_already_used': "❌ Сіз бұл промокодты бұрын пайдалантыңыз.",
-        'help_text': (
-            "🆘 <b>Анықтама</b>\n\n"
-            "/start — басты мәзір\n"
-            "/profile — менің профилім\n"
-            "/referral — реферал бағдарлама\n"
-            "/promo — промокод енгізу\n"
-            "/settings — параметрлер"
-        ),
+        'booking_status': "Мәртебесі",
+        'status_confirmed': "Күтуде",
+        'status_active': "Ойнауда",
+        'status_completed': "Аяқталды",
+        'status_noshow': "Келмеді",
+        'status_cancelled': "Бас тартылды",
+        'btn_show_code': "Кодты көрсету",
+        'btn_cancel': "Бас тарту",
+        'btn_clear_history': "Тарихты тазалау",
+        'btn_back': "« Артқа",
+        'btn_find_clubs': "🏢 Клубты табу",
+        'btn_my_bookings': "📅 Брондарым",
+        'btn_app': "📱 Қосымша",
+        'btn_help': "🙋‍♂️ Көмек",
+        'btn_about': "ℹ️ Бот туралы",
+        'btn_phone_share': "📱 Нөмірді жіберу",
+        'btn_skip': "⏩ Өткізіп жіберу",
+        'enter_phone_prompt': "📱 Жалғастыру үшін телефон нөміріңізді жіберіңіз:",
     }
 }
 
-
-def t(user_language: str, key: str, **kwargs) -> str:
-    """Get translated string for the given language and key."""
-    lang = user_language if user_language in TRANSLATIONS else 'ru'
-    text = TRANSLATIONS[lang].get(key) or TRANSLATIONS['ru'].get(key, key)
+def t(lang: str, key: str, **kwargs) -> str:
+    """Translate a key to the given language."""
+    text = TRANSLATIONS.get(lang, TRANSLATIONS['ru']).get(key, TRANSLATIONS['ru'].get(key, key))
     if kwargs:
-        try:
-            return text.format(**kwargs)
-        except Exception:
-            return text
+        return text.format(**kwargs)
     return text
-
-
-async def get_user_lang(user_tg_id: int) -> str:
-    """Fetch user's language preference from DB."""
-    from database import async_session_factory
-    from models import User
-    from sqlalchemy import select
-    async with async_session_factory() as session:
-        result = await session.execute(select(User).where(User.tg_id == user_tg_id))
-        user = result.scalars().first()
-        if user and getattr(user, 'language', None):
-            return user.language
-    return 'ru'
