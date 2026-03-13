@@ -1,0 +1,762 @@
+<!DOCTYPE html>
+<html lang="ru">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Digital Arena — Государственный Мониторинг Индустрии</title>
+    <meta name="description" content="Государственная аналитическая платформа мониторинга компьютерных клубов и киберспортивного сектора Узбекистана">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg:       #060a14;
+            --surface:  #0d1525;
+            --card:     #111c30;
+            --border:   rgba(100,160,255,0.12);
+            --primary:  #3b82f6;
+            --cyan:     #06b6d4;
+            --green:    #10b981;
+            --yellow:   #f59e0b;
+            --red:      #ef4444;
+            --text:     #e2e8f0;
+            --muted:    rgba(226,232,240,0.5);
+            --accent:   rgba(59,130,246,0.15);
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        html { scroll-behavior: smooth; }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* ── HEADER ─────────────────────────────────────────────────────── */
+        .header {
+            background: var(--surface);
+            border-bottom: 1px solid var(--border);
+            padding: 0 40px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            height: 64px;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            backdrop-filter: blur(12px);
+        }
+
+        .header-left { display: flex; align-items: center; gap: 16px; }
+
+        .gov-logo {
+            display: flex; align-items: center; gap: 12px;
+        }
+        .gov-emblem {
+            width: 40px; height: 40px;
+            background: linear-gradient(135deg, #1d4ed8, #06b6d4);
+            border-radius: 10px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 20px;
+        }
+        .gov-title { font-size: 15px; font-weight: 700; }
+        .gov-subtitle { font-size: 11px; color: var(--muted); margin-top: 1px; }
+
+        .header-divider { width: 1px; height: 36px; background: var(--border); }
+
+        .platform-name { font-size: 14px; font-weight: 600; color: var(--primary); }
+
+        .header-right { display: flex; align-items: center; gap: 16px; }
+
+        .live-badge {
+            display: flex; align-items: center; gap: 6px;
+            background: rgba(16,185,129,0.12);
+            border: 1px solid rgba(16,185,129,0.3);
+            color: var(--green);
+            padding: 5px 12px; border-radius: 20px; font-size: 12px; font-weight: 600;
+        }
+        .live-dot {
+            width: 7px; height: 7px; background: var(--green);
+            border-radius: 50%; animation: pulse 1.5s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+
+        .last-update { font-size: 11px; color: var(--muted); }
+
+        /* ── HERO BANNER ─────────────────────────────────────────────────── */
+        .hero {
+            background: linear-gradient(135deg, #0d1525 0%, #0a1628 50%, #060a14 100%);
+            border-bottom: 1px solid var(--border);
+            padding: 40px 40px 32px;
+            position: relative;
+            overflow: hidden;
+        }
+        .hero::before {
+            content: '';
+            position: absolute;
+            top: -50px; right: -50px;
+            width: 400px; height: 400px;
+            background: radial-gradient(circle, rgba(59,130,246,0.06) 0%, transparent 70%);
+            pointer-events: none;
+        }
+        .hero-label {
+            display: inline-flex; align-items: center; gap: 6px;
+            font-size: 11px; font-weight: 600;
+            color: var(--primary); letter-spacing: 1.5px; text-transform: uppercase;
+            background: rgba(59,130,246,0.1); border: 1px solid rgba(59,130,246,0.2);
+            padding: 4px 12px; border-radius: 20px; margin-bottom: 16px;
+        }
+        .hero h1 {
+            font-size: 32px; font-weight: 800; line-height: 1.25;
+            margin-bottom: 12px;
+        }
+        .hero h1 span { color: var(--cyan); }
+        .hero p { font-size: 14px; color: var(--muted); max-width: 640px; line-height: 1.7; }
+
+        /* ── MAIN GRID ───────────────────────────────────────────────────── */
+        .container { padding: 32px 40px; max-width: 1600px; }
+
+        /* ── KPI CARDS ───────────────────────────────────────────────────── */
+        .kpi-grid {
+            display: grid;
+            grid-template-columns: repeat(6, 1fr);
+            gap: 16px;
+            margin-bottom: 32px;
+        }
+        @media (max-width: 1400px) { .kpi-grid { grid-template-columns: repeat(3, 1fr); } }
+        @media (max-width: 800px)  { .kpi-grid { grid-template-columns: repeat(2, 1fr); } }
+
+        .kpi-card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 20px;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .kpi-card:hover { transform: translateY(-2px); box-shadow: 0 8px 32px rgba(59,130,246,0.08); }
+
+        .kpi-icon { font-size: 28px; margin-bottom: 14px; display: block; }
+        .kpi-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; }
+        .kpi-value { font-size: 30px; font-weight: 800; line-height: 1; }
+        .kpi-value.cyan   { color: var(--cyan); }
+        .kpi-value.green  { color: var(--green); }
+        .kpi-value.yellow { color: var(--yellow); }
+        .kpi-value.red    { color: var(--red); }
+        .kpi-value.blue   { color: var(--primary); }
+        .kpi-sub { font-size: 12px; color: var(--muted); margin-top: 6px; }
+
+        /* ── SECTION TITLE ───────────────────────────────────────────────── */
+        .section-label {
+            font-size: 11px; font-weight: 700; letter-spacing: 1.5px;
+            text-transform: uppercase; color: var(--muted); margin-bottom: 16px;
+            display: flex; align-items: center; gap: 8px;
+        }
+        .section-label::after {
+            content: ''; flex: 1; height: 1px; background: var(--border);
+        }
+
+        /* ── ROW GRID ────────────────────────────────────────────────────── */
+        .row { display: grid; gap: 20px; margin-bottom: 24px; }
+        .row-3 { grid-template-columns: 2fr 1fr 1fr; }
+        .row-2 { grid-template-columns: 1fr 1fr; }
+        @media (max-width: 1100px) { .row-3, .row-2 { grid-template-columns: 1fr; } }
+
+        /* ── CARD ─────────────────────────────────────────────────────────── */
+        .card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 24px;
+        }
+        .card-title {
+            font-size: 14px; font-weight: 700;
+            margin-bottom: 20px; display: flex; align-items: center; gap: 8px;
+        }
+        .card-badge {
+            background: var(--accent); color: var(--primary);
+            font-size: 11px; padding: 2px 8px; border-radius: 20px; font-weight: 600;
+        }
+
+        /* ── BAR CHART ────────────────────────────────────────────────────── */
+        .bar-chart {
+            display: flex; align-items: flex-end; gap: 6px;
+            height: 120px; padding-bottom: 8px;
+        }
+        .bar-col { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+        .bar-fill {
+            width: 100%; border-radius: 4px 4px 0 0;
+            background: linear-gradient(to top, var(--primary), var(--cyan));
+            min-height: 4px;
+            transition: all 0.5s ease;
+            position: relative; cursor: pointer;
+        }
+        .bar-fill:hover { filter: brightness(1.2); }
+        .bar-fill::after {
+            content: attr(data-val);
+            position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%);
+            background: var(--card); color: var(--text); font-size: 10px;
+            padding: 3px 6px; border-radius: 4px; white-space: nowrap;
+            opacity: 0; transition: 0.2s; pointer-events: none;
+            border: 1px solid var(--border);
+        }
+        .bar-fill:hover::after { opacity: 1; }
+        .bar-label { font-size: 9px; color: var(--muted); text-align: center; }
+
+        /* ── PEAK HOUR CHART ─────────────────────────────────────────────── */
+        .peak-chart { display: flex; align-items: flex-end; gap: 3px; height: 80px; }
+        .peak-bar {
+            flex: 1; border-radius: 2px 2px 0 0; min-height: 2px;
+            background: linear-gradient(to top, var(--yellow), #fbbf24);
+            transition: all 0.5s;
+        }
+        .peak-bar.peak { background: linear-gradient(to top, var(--red), #ff6b35); }
+        .peak-labels { display: flex; justify-content: space-between; margin-top: 6px; }
+        .peak-label-item { font-size: 9px; color: var(--muted); }
+
+        /* ── PIE-LIKE PAYMENT ─────────────────────────────────────────────── */
+        .payment-list { display: flex; flex-direction: column; gap: 12px; }
+        .payment-row { display: flex; flex-direction: column; gap: 4px; }
+        .payment-info { display: flex; justify-content: space-between; align-items: center; }
+        .payment-name { font-size: 13px; font-weight: 600; }
+        .payment-count { font-size: 12px; color: var(--muted); }
+        .payment-bar-bg { height: 6px; background: rgba(255,255,255,0.06); border-radius: 3px; overflow: hidden; }
+        .payment-bar-fill { height: 100%; border-radius: 3px; transition: width 1s ease; }
+
+        /* ── TABLE ─────────────────────────────────────────────────────────── */
+        table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        th {
+            text-align: left; padding: 10px 12px;
+            font-size: 10px; color: var(--muted);
+            text-transform: uppercase; letter-spacing: 0.5px;
+            border-bottom: 1px solid var(--border);
+        }
+        td { padding: 12px; border-bottom: 1px solid rgba(255,255,255,0.04); }
+        tr:last-child td { border-bottom: none; }
+        tr:hover td { background: rgba(59,130,246,0.03); }
+
+        .rank-badge {
+            width: 24px; height: 24px; border-radius: 50%;
+            display: inline-flex; align-items: center; justify-content: center;
+            font-size: 11px; font-weight: 700;
+        }
+        .rank-1 { background: rgba(245,158,11,0.2); color: var(--yellow); }
+        .rank-2 { background: rgba(148,163,184,0.2); color: #94a3b8; }
+        .rank-3 { background: rgba(234,88,12,0.15); color: #ea8c0d; }
+        .rank-n { background: rgba(255,255,255,0.05); color: var(--muted); }
+
+        .city-chip {
+            background: rgba(59,130,246,0.1); color: var(--primary);
+            font-size: 11px; padding: 2px 8px; border-radius: 12px;
+        }
+
+        /* ── ACCESS PANEL ─────────────────────────────────────────────────── */
+        .access-overlay {
+            position: fixed; inset: 0;
+            background: rgba(6,10,20,0.97);
+            display: flex; align-items: center; justify-content: center;
+            z-index: 200; backdrop-filter: blur(8px);
+        }
+        .access-box {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 24px;
+            padding: 48px 40px;
+            max-width: 460px; width: 100%;
+            text-align: center;
+        }
+        .access-logo { font-size: 48px; margin-bottom: 20px; }
+        .access-title { font-size: 24px; font-weight: 800; margin-bottom: 8px; }
+        .access-subtitle { font-size: 13px; color: var(--muted); margin-bottom: 32px; line-height: 1.6; }
+        .access-input {
+            width: 100%; padding: 14px 16px;
+            background: var(--surface); border: 1px solid var(--border);
+            border-radius: 12px; color: var(--text);
+            font-size: 15px; font-family: 'Inter', sans-serif;
+            margin-bottom: 12px; text-align: center; letter-spacing: 4px;
+        }
+        .access-input:focus { outline: none; border-color: var(--primary); }
+        .access-btn {
+            width: 100%; padding: 14px;
+            background: linear-gradient(135deg, var(--primary), var(--cyan));
+            border: none; border-radius: 12px;
+            font-size: 15px; font-weight: 700;
+            color: #000; cursor: pointer; transition: opacity 0.2s;
+        }
+        .access-btn:hover { opacity: 0.9; }
+        .access-error { color: var(--red); font-size: 13px; margin-top: 10px; display: none; }
+        .ministry-tags { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-top: 24px; }
+        .ministry-tag {
+            background: rgba(59,130,246,0.08); border: 1px solid rgba(59,130,246,0.15);
+            color: var(--primary); font-size: 11px; padding: 4px 10px; border-radius: 20px;
+        }
+
+        /* ── FOOTER ─────────────────────────────────────────────────────────── */
+        .footer {
+            border-top: 1px solid var(--border);
+            padding: 24px 40px;
+            display: flex; align-items: center; justify-content: space-between;
+            font-size: 12px; color: var(--muted);
+        }
+
+        /* ── LOADING ─────────────────────────────────────────────────────── */
+        .skeleton {
+            background: linear-gradient(90deg, rgba(255,255,255,0.04) 25%, rgba(255,255,255,0.08) 50%, rgba(255,255,255,0.04) 75%);
+            background-size: 200% 100%;
+            animation: shimmer 1.5s infinite;
+            border-radius: 8px; height: 24px;
+        }
+        @keyframes shimmer { to { background-position: -200% 0; } }
+
+        /* Counter animation */
+        .count-up { transition: opacity 0.3s; }
+
+        @media (max-width: 600px) {
+            .header { padding: 0 16px; }
+            .hero { padding: 24px 16px; }
+            .container { padding: 16px; }
+            .hero h1 { font-size: 22px; }
+            .footer { flex-direction: column; gap: 8px; text-align: center; }
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- ── Access Gate ── -->
+    <div class="access-overlay" id="access-overlay">
+        <div class="access-box">
+            <div class="access-logo">🏛️</div>
+            <div class="access-title">Государственный Портал</div>
+            <div class="access-subtitle">
+                Аналитическая система мониторинга<br>
+                киберспортивного сектора Узбекистана<br>
+                <strong style="color:var(--text)">Digital Arena</strong>
+            </div>
+            <input class="access-input" type="password" placeholder="Введите токен доступа" id="token-input" onkeydown="if(event.key==='Enter') checkAccess()">
+            <button class="access-btn" onclick="checkAccess()">🔐 Войти в систему</button>
+            <p class="access-error" id="access-error">❌ Неверный токен доступа</p>
+            <div class="ministry-tags">
+                <span class="ministry-tag">🏛️ Минспорт</span>
+                <span class="ministry-tag">💻 МинЦифра</span>
+                <span class="ministry-tag">📊 ГНК / Soliq</span>
+                <span class="ministry-tag">🏗️ IT Park</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── Header ── -->
+    <header class="header">
+        <div class="header-left">
+            <div class="gov-logo">
+                <div class="gov-emblem">🏛️</div>
+                <div>
+                    <div class="gov-title">Государственный Мониторинг</div>
+                    <div class="gov-subtitle">Республика Узбекистан • DigitalArena.uz</div>
+                </div>
+            </div>
+            <div class="header-divider"></div>
+            <div class="platform-name">⚡ Digital Arena Analytics Platform</div>
+        </div>
+        <div class="header-right">
+            <div class="live-badge">
+                <div class="live-dot"></div>
+                Live / Онлайн
+            </div>
+            <div class="last-update" id="header-updated">Загрузка...</div>
+        </div>
+    </header>
+
+    <!-- ── Hero Banner ── -->
+    <div class="hero">
+        <div class="hero-label">📡 Мониторинг в реальном времени</div>
+        <h1>Аналитика <span>кибер-индустрии</span> Узбекистана</h1>
+        <p>
+            Единая государственная платформа мониторинга компьютерных клубов и кибер-спортивного сектора страны.
+            Данные обновляются каждые 60 секунд. Все цифры — реальные транзакции из системы Digital Arena.
+        </p>
+    </div>
+
+    <!-- ── Main Content ── -->
+    <div class="container">
+
+        <!-- KPI Cards -->
+        <div class="section-label">📊 Ключевые показатели индустрии</div>
+        <div class="kpi-grid">
+            <div class="kpi-card">
+                <span class="kpi-icon">🖥️</span>
+                <div class="kpi-label">Активных клубов</div>
+                <div class="kpi-value cyan" id="kpi-clubs">—</div>
+                <div class="kpi-sub">из <span id="kpi-clubs-total">—</span> зарегистрированных</div>
+            </div>
+            <div class="kpi-card">
+                <span class="kpi-icon">🎮</span>
+                <div class="kpi-label">Играют прямо сейчас</div>
+                <div class="kpi-value green" id="kpi-now">—</div>
+                <div class="kpi-sub">активных сессий</div>
+            </div>
+            <div class="kpi-card">
+                <span class="kpi-icon">👥</span>
+                <div class="kpi-label">Зарегистрировано игроков</div>
+                <div class="kpi-value blue" id="kpi-users">—</div>
+                <div class="kpi-sub">+<span id="kpi-new-today">—</span> сегодня</div>
+            </div>
+            <div class="kpi-card">
+                <span class="kpi-icon">📅</span>
+                <div class="kpi-label">Броней за месяц</div>
+                <div class="kpi-value blue" id="kpi-bookings-month">—</div>
+                <div class="kpi-sub">сегодня: <span id="kpi-bookings-today">—</span></div>
+            </div>
+            <div class="kpi-card">
+                <span class="kpi-icon">💰</span>
+                <div class="kpi-label">Выручка за месяц</div>
+                <div class="kpi-value yellow" id="kpi-revenue-month">—</div>
+                <div class="kpi-sub">UZS (официально)</div>
+            </div>
+            <div class="kpi-card">
+                <span class="kpi-icon">🏆</span>
+                <div class="kpi-label">Средняя выручка клуба</div>
+                <div class="kpi-value green" id="kpi-avg-club">—</div>
+                <div class="kpi-sub">UZS / месяц</div>
+            </div>
+        </div>
+
+        <!-- Charts Row -->
+        <div class="section-label">📈 Динамика и Активность</div>
+        <div class="row row-3">
+            <!-- Daily bar chart -->
+            <div class="card">
+                <div class="card-title">
+                    📊 Активность броней — последние 7 дней
+                    <span class="card-badge" id="week-total-badge">—</span>
+                </div>
+                <div class="bar-chart" id="daily-chart">
+                    <div style="color:var(--muted);font-size:13px;margin:auto">Загрузка...</div>
+                </div>
+            </div>
+
+            <!-- Peak hours -->
+            <div class="card">
+                <div class="card-title">⏰ Часы пиковой нагрузки</div>
+                <div class="peak-chart" id="peak-chart">
+                    <div style="color:var(--muted);font-size:12px;margin:auto">Загрузка...</div>
+                </div>
+                <div class="peak-labels">
+                    <span class="peak-label-item">00:00</span>
+                    <span class="peak-label-item">06:00</span>
+                    <span class="peak-label-item">12:00</span>
+                    <span class="peak-label-item">18:00</span>
+                    <span class="peak-label-item">23:00</span>
+                </div>
+                <div style="margin-top:12px;font-size:12px;color:var(--muted)">
+                    Пик: <strong id="peak-hour-label" style="color:var(--yellow)">—</strong>
+                </div>
+            </div>
+
+            <!-- Payment methods -->
+            <div class="card">
+                <div class="card-title">💳 Способы оплаты</div>
+                <div class="payment-list" id="payment-list">
+                    <div style="color:var(--muted);font-size:12px">Загрузка...</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Bottom Row -->
+        <div class="section-label">🏢 Рейтинг клубов и Аналитика</div>
+        <div class="row row-2">
+            <!-- Top Clubs Table -->
+            <div class="card">
+                <div class="card-title">
+                    🏆 Топ клубов по количеству броней
+                    <span class="card-badge">за 30 дней</span>
+                </div>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Клуб</th>
+                            <th>Город</th>
+                            <th>Броней</th>
+                            <th>Выручка</th>
+                        </tr>
+                    </thead>
+                    <tbody id="top-clubs-table">
+                        <tr><td colspan="5" style="text-align:center;color:var(--muted);padding:20px">Загрузка...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Stats Summary -->
+            <div style="display:flex;flex-direction:column;gap:16px">
+                <!-- Booking health -->
+                <div class="card">
+                    <div class="card-title">🩺 Качество броней (месяц)</div>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+                        <div style="background:rgba(16,185,129,0.08);border:1px solid rgba(16,185,129,0.2);border-radius:12px;padding:16px;text-align:center">
+                            <div style="font-size:28px;font-weight:800;color:var(--green)" id="stat-completed">—</div>
+                            <div style="font-size:11px;color:var(--muted);margin-top:4px">Завершено</div>
+                        </div>
+                        <div style="background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.2);border-radius:12px;padding:16px;text-align:center">
+                            <div style="font-size:28px;font-weight:800;color:var(--red)" id="stat-noshow">—</div>
+                            <div style="font-size:11px;color:var(--muted);margin-top:4px">No-Show (Неявки)</div>
+                        </div>
+                        <div style="background:rgba(59,130,246,0.08);border:1px solid rgba(59,130,246,0.2);border-radius:12px;padding:16px;text-align:center">
+                            <div style="font-size:22px;font-weight:800;color:var(--primary)" id="stat-avg-dur">—</div>
+                            <div style="font-size:11px;color:var(--muted);margin-top:4px">Ср. длит-ть (мин)</div>
+                        </div>
+                        <div style="background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.2);border-radius:12px;padding:16px;text-align:center">
+                            <div style="font-size:22px;font-weight:800;color:var(--yellow)" id="stat-avg-check">—</div>
+                            <div style="font-size:11px;color:var(--muted);margin-top:4px">Ср. чек (сум)</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Cities -->
+                <div class="card">
+                    <div class="card-title">🗺️ Клубы по городам</div>
+                    <div id="cities-list" style="display:flex;flex-direction:column;gap:10px">
+                        <div style="color:var(--muted);font-size:12px">Загрузка...</div>
+                    </div>
+                </div>
+
+                <!-- Revenue breakdown -->
+                <div class="card">
+                    <div class="card-title">📊 Выручка за 7 дней</div>
+                    <div style="font-size:36px;font-weight:800;color:var(--green)" id="revenue-week">—</div>
+                    <div style="font-size:12px;color:var(--muted);margin-top:6px">UZS (официально зарегистрировано)</div>
+                    <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border)">
+                        <div style="font-size:12px;color:var(--muted)">Всего за всё время:</div>
+                        <div style="font-size:20px;font-weight:700;color:var(--text);margin-top:4px" id="revenue-total">—</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div>
+            🏛️ <strong>Digital Arena</strong> — Государственный Портал Мониторинга | Узбекистан, 2026
+        </div>
+        <div>
+            Данные обновляются каждые 60 секунд • Только агрегированные показатели •
+            Персональные данные не раскрываются
+        </div>
+    </footer>
+
+<script>
+    const API = window.location.origin + '/api';
+    let GOV_TOKEN = localStorage.getItem('gov_token') || '';
+
+    // ── Access Gate ──────────────────────────────────────────────────────────
+    function checkAccess() {
+        const token = document.getElementById('token-input').value.trim();
+        if (!token) return;
+        GOV_TOKEN = token;
+        localStorage.setItem('gov_token', token);
+        loadData();
+    }
+
+    if (GOV_TOKEN) {
+        document.getElementById('access-overlay').style.display = 'none';
+        loadData();
+    }
+
+    // ── Data Loading ─────────────────────────────────────────────────────────
+    async function loadData() {
+        try {
+            const r = await fetch(`${API}/gov/stats?token=${encodeURIComponent(GOV_TOKEN)}`);
+            if (r.status === 403) {
+                document.getElementById('access-overlay').style.display = 'flex';
+                document.getElementById('access-error').style.display = 'block';
+                localStorage.removeItem('gov_token');
+                return;
+            }
+            document.getElementById('access-overlay').style.display = 'none';
+            const d = await r.json();
+            renderAll(d);
+        } catch (e) {
+            console.error('Failed to load gov data:', e);
+        }
+    }
+
+    function fmt(n) { return Number(n || 0).toLocaleString('ru'); }
+
+    function renderAll(d) {
+        // ── KPI ──
+        animateCount('kpi-clubs', d.clubs?.active ?? 0);
+        set('kpi-clubs-total', d.clubs?.total ?? 0);
+        animateCount('kpi-now', d.players?.playing_right_now ?? 0);
+        animateCount('kpi-users', d.players?.total_registered ?? 0);
+        set('kpi-new-today', d.players?.new_today ?? 0);
+        animateCount('kpi-bookings-month', d.bookings?.this_month ?? 0);
+        set('kpi-bookings-today', d.bookings?.today ?? 0);
+        document.getElementById('kpi-revenue-month').textContent = fmtUZS(d.revenue?.this_month_uzs);
+        document.getElementById('kpi-avg-club').textContent = fmtUZS(d.revenue?.avg_per_club_month_uzs);
+
+        // ── Week total badge ──
+        set('week-total-badge', `${d.bookings?.this_week ?? 0} броней`);
+
+        // ── Daily chart ──
+        renderDailyChart(d.daily_activity_7d || []);
+
+        // ── Peak hours ──
+        renderPeakChart(d.peak_hours || []);
+
+        // ── Payment methods ──
+        renderPayments(d.payment_methods || []);
+
+        // ── Top clubs ──
+        renderTopClubs(d.top_clubs_by_bookings || []);
+
+        // ── Stats ──
+        animateCount('stat-completed', d.bookings?.completed_month ?? 0);
+        animateCount('stat-noshow', d.bookings?.no_show_month ?? 0);
+        set('stat-avg-dur', d.bookings?.avg_duration_minutes ?? '—');
+        set('stat-avg-check', fmtUZS(d.revenue?.avg_booking_check_uzs));
+
+        // ── Cities ──
+        renderCities(d.clubs?.by_city || []);
+
+        // ── Revenue ──
+        document.getElementById('revenue-week').textContent = fmtUZS(d.revenue?.this_week_uzs);
+        document.getElementById('revenue-total').textContent = fmtUZS(d.revenue?.total_all_time_uzs) + ' UZS';
+
+        // ── Header ──
+        document.getElementById('header-updated').textContent =
+            'Обновлено: ' + new Date().toLocaleTimeString('ru');
+    }
+
+    function set(id, val) {
+        const el = document.getElementById(id);
+        if (el) el.textContent = val;
+    }
+
+    function fmtUZS(val) {
+        const n = Number(val || 0);
+        if (n >= 1_000_000_000) return (n / 1_000_000_000).toFixed(1) + ' млрд';
+        if (n >= 1_000_000)     return (n / 1_000_000).toFixed(1) + ' млн';
+        if (n >= 1_000)         return (n / 1_000).toFixed(0) + ' тыс';
+        return String(n);
+    }
+
+    function animateCount(id, target) {
+        const el = document.getElementById(id);
+        if (!el) return;
+        const start = 0;
+        const duration = 800;
+        const startTime = performance.now();
+        function step(now) {
+            const progress = Math.min((now - startTime) / duration, 1);
+            const ease = 1 - Math.pow(1 - progress, 3);
+            el.textContent = Math.round(start + (target - start) * ease).toLocaleString('ru');
+            if (progress < 1) requestAnimationFrame(step);
+        }
+        requestAnimationFrame(step);
+    }
+
+    // ── Daily chart ──────────────────────────────────────────────────────────
+    function renderDailyChart(daily) {
+        const chart = document.getElementById('daily-chart');
+        if (!daily.length) { chart.innerHTML = '<span style="color:var(--muted);margin:auto">Нет данных</span>'; return; }
+        const max = Math.max(...daily.map(d => d.bookings), 1);
+        chart.innerHTML = daily.map(d => {
+            const h = Math.max(4, (d.bookings / max) * 110);
+            const rev = d.revenue_uzs > 0 ? `${fmtUZS(d.revenue_uzs)} UZS` : '';
+            return `<div class="bar-col">
+                <div class="bar-fill" style="height:${h}px" data-val="${d.bookings} броней | ${rev}"></div>
+                <div class="bar-label">${d.date}</div>
+            </div>`;
+        }).join('');
+    }
+
+    // ── Peak hours ────────────────────────────────────────────────────────────
+    function renderPeakChart(hours) {
+        const chart = document.getElementById('peak-chart');
+        if (!hours.length) { chart.innerHTML = '<span style="color:var(--muted);margin:auto">Нет данных</span>'; return; }
+        const max = Math.max(...hours.map(h => h.count), 1);
+        const peak = hours.reduce((a, b) => b.count > a.count ? b : a, hours[0]);
+        document.getElementById('peak-hour-label').textContent = `${peak.hour}:00 – ${peak.hour + 1}:00`;
+        // Fill all 24 hours (some may be missing)
+        const byHour = {};
+        hours.forEach(h => byHour[h.hour] = h.count);
+        chart.innerHTML = Array.from({length: 24}, (_, i) => {
+            const count = byHour[i] || 0;
+            const h = Math.max(2, (count / max) * 75);
+            const isPeak = i === peak.hour;
+            return `<div class="peak-bar ${isPeak ? 'peak' : ''}" style="height:${h}px" title="${i}:00 — ${count}"></div>`;
+        }).join('');
+    }
+
+    // ── Payment methods ───────────────────────────────────────────────────────
+    function renderPayments(methods) {
+        const container = document.getElementById('payment-list');
+        if (!methods.length) {
+            container.innerHTML = '<div style="color:var(--muted);font-size:12px">Нет данных об оплатах</div>';
+            return;
+        }
+        const totalCount = methods.reduce((s, m) => s + m.count, 0) || 1;
+        const colors = ['#3b82f6', '#06b6d4', '#10b981', '#f59e0b', '#8b5cf6', '#ef4444'];
+        container.innerHTML = methods.map((m, i) => {
+            const pct = Math.round((m.count / totalCount) * 100);
+            return `<div class="payment-row">
+                <div class="payment-info">
+                    <span class="payment-name">${m.label || m.provider}</span>
+                    <span class="payment-count">${pct}% · ${fmt(m.count)} транзакций</span>
+                </div>
+                <div class="payment-bar-bg">
+                    <div class="payment-bar-fill" style="width:${pct}%;background:${colors[i % colors.length]}"></div>
+                </div>
+            </div>`;
+        }).join('');
+    }
+
+    // ── Top clubs table ───────────────────────────────────────────────────────
+    function renderTopClubs(clubs) {
+        const tbody = document.getElementById('top-clubs-table');
+        if (!clubs.length) {
+            tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:20px">Нет данных</td></tr>';
+            return;
+        }
+        tbody.innerHTML = clubs.map((c, i) => {
+            const rankClass = i === 0 ? 'rank-1' : i === 1 ? 'rank-2' : i === 2 ? 'rank-3' : 'rank-n';
+            return `<tr>
+                <td><span class="rank-badge ${rankClass}">${i + 1}</span></td>
+                <td><strong>${c.name}</strong></td>
+                <td><span class="city-chip">${c.city || '—'}</span></td>
+                <td style="font-weight:600;color:var(--cyan)">${fmt(c.bookings_month)}</td>
+                <td style="color:var(--green)">${fmtUZS(c.revenue_month_uzs)} UZS</td>
+            </tr>`;
+        }).join('');
+    }
+
+    // ── Cities list ───────────────────────────────────────────────────────────
+    function renderCities(cities) {
+        const container = document.getElementById('cities-list');
+        if (!cities.length) { container.innerHTML = '<div style="color:var(--muted)">Нет данных</div>'; return; }
+        const max = Math.max(...cities.map(c => c.clubs), 1);
+        container.innerHTML = cities.map(c => `
+            <div>
+                <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px">
+                    <span style="font-weight:600">${c.city || 'Не указан'}</span>
+                    <span style="color:var(--muted)">${c.clubs} клуб${c.clubs > 1 ? 'ов' : ''}</span>
+                </div>
+                <div style="height:4px;background:rgba(255,255,255,0.06);border-radius:2px;overflow:hidden">
+                    <div style="height:100%;width:${(c.clubs/max)*100}%;background:linear-gradient(90deg,var(--primary),var(--cyan));border-radius:2px"></div>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    // ── Auto-refresh every 60 seconds ─────────────────────────────────────────
+    setInterval(() => { if (GOV_TOKEN) loadData(); }, 60000);
+</script>
+
+</body>
+</html>

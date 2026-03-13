@@ -39,6 +39,8 @@ if _sentry_dsn:
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from handlers.api import router as api_router
+from handlers.audit import router as audit_router
+from handlers.gov import router as gov_router
 import uvicorn
 from models import User
 
@@ -79,6 +81,8 @@ fastapi_app.add_middleware(
     allow_headers=["*"],
 )
 fastapi_app.include_router(api_router, prefix="/api")
+fastapi_app.include_router(audit_router, prefix="/api")
+fastapi_app.include_router(gov_router, prefix="/api")
 fastapi_app.mount("/website", StaticFiles(directory="website", html=True), name="website")
 fastapi_app.mount("/miniapp", StaticFiles(directory="miniapp", html=True), name="miniapp")
 fastapi_app.mount("/", StaticFiles(directory="public", html=True), name="public")

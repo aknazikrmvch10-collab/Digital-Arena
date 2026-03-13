@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="ru">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Digital Arena — Audit Dashboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #0a0a0f;
+            --surface: #12121a;
+            --card: #1a1a26;
+            --border: rgba(255, 255, 255, 0.08);
+            --primary: #00f2ff;
+            --accent: #8b5cf6;
+            --success: #00ff9d;
+            --warning: #fbbf24;
+            --error: #ff4757;
+            --text: #e2e8f0;
+            --muted: rgba(255, 255, 255, 0.45);
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+
+        /* SIDEBAR */
+        .sidebar {
+            position: fixed; left: 0; top: 0; bottom: 0; width: 240px;
+            background: var(--surface); border-right: 1px solid var(--border);
+            padding: 24px 16px; display: flex; flex-direction: column; gap: 8px; z-index: 100;
+        }
+        .logo {
+            font-size: 18px; font-weight: 800;
+            background: linear-gradient(135deg, var(--error), var(--warning));
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+            margin-bottom: 24px; padding-left: 8px;
+        }
+        .nav-item {
+            display: flex; align-items: center; gap: 10px; padding: 10px 12px;
+            border-radius: 10px; cursor: pointer; font-size: 14px; font-weight: 500;
+            color: var(--muted); border: none; background: transparent;
+            width: 100%; text-align: left; transition: all 0.2s; text-decoration: none;
+        }
+        .nav-item:hover, .nav-item.active { background: rgba(255,71,87,0.1); color: var(--error); }
+        .nav-item a { color: inherit; text-decoration: none; }
+        .nav-icon { font-size: 18px; width: 22px; text-align: center; }
+
+        /* MAIN */
+        .main { margin-left: 240px; padding: 32px; min-height: 100vh; }
+
+        .topbar {
+            display: flex; justify-content: space-between; align-items: center; margin-bottom: 32px;
+        }
+        .page-title { font-size: 24px; font-weight: 700; }
+        .page-sub { font-size: 13px; color: var(--muted); margin-top: 4px; }
+
+        .btn {
+            padding: 10px 18px; border-radius: 10px; font-weight: 600; cursor: pointer;
+            border: none; font-size: 13px; transition: all 0.2s; display: inline-flex;
+            align-items: center; gap: 6px;
+        }
+        .btn-primary { background: linear-gradient(135deg, var(--primary), var(--accent)); color: #000; }
+        .btn-danger  { background: rgba(255,71,87,0.15); color: var(--error); border: 1px solid rgba(255,71,87,0.3); }
+        .btn-warning { background: rgba(251,191,36,0.15); color: var(--warning); border: 1px solid rgba(251,191,36,0.3); }
+        .btn-success { background: rgba(0,255,157,0.15); color: var(--success); border: 1px solid rgba(0,255,157,0.3); }
+        .btn:hover { opacity: 0.85; transform: translateY(-1px); }
+        .btn-row { display: flex; gap: 10px; flex-wrap: wrap; }
+
+        /* STAT CARDS */
+        .stat-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 28px; }
+        @media (max-width: 1100px) { .stat-grid { grid-template-columns: repeat(2, 1fr); } }
+
+        .stat-card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 20px; }
+        .stat-card.danger  { border-color: rgba(255,71,87,0.3); background: rgba(255,71,87,0.05); }
+        .stat-card.warning { border-color: rgba(251,191,36,0.3); background: rgba(251,191,36,0.05); }
+        .stat-card.success { border-color: rgba(0,255,157,0.3); background: rgba(0,255,157,0.05); }
+
+        .stat-icon { font-size: 24px; margin-bottom: 12px; }
+        .stat-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; }
+        .stat-value { font-size: 28px; font-weight: 800; }
+        .stat-sub  { font-size: 12px; color: var(--muted); margin-top: 4px; }
+
+        /* CARD */
+        .card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 20px; margin-bottom: 24px; }
+        .section-title { font-size: 15px; font-weight: 700; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
+        .badge { background: rgba(255,71,87,0.15); color: var(--error); font-size: 11px; padding: 2px 8px; border-radius: 20px; font-weight: 600; }
+        .badge-ok { background: rgba(0,255,157,0.15); color: var(--success); }
+
+        /* FILTER BAR */
+        .filter-bar { display: flex; gap: 10px; align-items: center; margin-bottom: 16px; flex-wrap: wrap; }
+        .filter-bar select, .filter-bar input {
+            background: var(--surface); border: 1px solid var(--border); color: var(--text);
+            border-radius: 8px; padding: 8px 12px; font-size: 13px; font-family: inherit;
+        }
+
+        /* TABLE */
+        table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        th { text-align: left; padding: 8px 12px; font-size: 11px; color: var(--muted); text-transform: uppercase; border-bottom: 1px solid var(--border); }
+        td { padding: 12px; border-bottom: 1px solid rgba(255,255,255,0.04); vertical-align: top; }
+        tr:last-child td { border-bottom: none; }
+        tr:hover td { background: rgba(255, 255, 255, 0.02); }
+
+        .disc-type {
+            display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; white-space: nowrap;
+        }
+        .type-UNREGISTERED_SESSION { background: rgba(255,71,87,0.15); color: var(--error); }
+        .type-PAYMENT_MISMATCH     { background: rgba(251,191,36,0.15); color: var(--warning); }
+        .type-BOOKING_NO_SESSION   { background: rgba(139,92,246,0.15); color: var(--accent); }
+        .type-DURATION_MISMATCH    { background: rgba(0,242,255,0.15); color: var(--primary); }
+
+        .shadow-amount { color: var(--error); font-weight: 700; }
+        .resolved-badge { background: rgba(0,255,157,0.15); color: var(--success); font-size: 11px; padding: 2px 8px; border-radius: 20px; }
+
+        /* CHART BARS */
+        .mini-chart { display: flex; align-items: flex-end; gap: 4px; height: 60px; margin-top: 8px; }
+        .mini-bar { background: var(--error); border-radius: 2px; flex: 1; min-height: 2px; opacity: 0.7; transition: 0.2s; }
+        .mini-bar:hover { opacity: 1; }
+
+        /* LOGIN OVERLAY */
+        .overlay { position: fixed; inset: 0; background: rgba(10,10,15,0.97); display: flex; align-items: center; justify-content: center; z-index: 200; }
+        .login-box { background: var(--card); border: 1px solid var(--border); border-radius: 20px; padding: 40px; max-width: 400px; width: 100%; text-align: center; }
+        .login-logo { font-size: 40px; margin-bottom: 16px; }
+        .login-title { font-size: 22px; font-weight: 800; margin-bottom: 8px; }
+        .login-sub { font-size: 14px; color: var(--muted); margin-bottom: 32px; }
+        .tg-login-btn { background: #229ED9; color: #fff; border: none; border-radius: 12px; padding: 14px 28px; font-size: 16px; font-weight: 700; cursor: pointer; width: 100%; transition: opacity 0.2s; }
+        .tg-login-btn:hover { opacity: 0.85; }
+
+        @media (max-width: 768px) { .sidebar { display: none; } .main { margin-left: 0; padding: 16px; } }
+    </style>
+</head>
+
+<body>
+
+    <!-- Login Overlay -->
+    <div class="overlay" id="login-overlay">
+        <div class="login-box">
+            <div class="login-logo">🔍</div>
+            <div class="login-title">Audit Dashboard</div>
+            <div class="login-sub">Digital Arena — Мониторинг теневой экономики<br>Только для авторизованных администраторов</div>
+            <div id="tg-login-btn-area">
+                <button class="tg-login-btn" onclick="loginViaTelegram()">✈️ Войти через Telegram</button>
+            </div>
+            <div id="tg-widget-area" style="display:none; min-height:44px;"></div>
+            <p id="login-error" style="color:var(--error);font-size:13px;margin-top:12px;display:none;">⛔ Доступ запрещён. Только супер-администратор.</p>
+        </div>
+    </div>
+
+    <!-- Sidebar -->
+    <div class="sidebar">
+        <div class="logo">🔍 Audit Panel</div>
+        <a class="nav-item" href="/miniapp/admin_panel.html">
+            <span class="nav-icon">📊</span> Главный Дашборд
+        </a>
+        <button class="nav-item active" onclick="loadSection('discrepancies')">
+            <span class="nav-icon">⚠️</span> Расхождения
+        </button>
+        <button class="nav-item" onclick="loadSection('sessions')">
+            <span class="nav-icon">🖥️</span> Сессии iCafe
+        </button>
+        <button class="nav-item" onclick="loadSection('report')">
+            <span class="nav-icon">📄</span> Отчёт для ГНК
+        </button>
+        <div style="flex:1"></div>
+        <button class="nav-item" onclick="runSync()" id="sync-btn">
+            <span class="nav-icon">🔄</span> Синхронизировать
+        </button>
+        <button class="nav-item" onclick="runAudit()" id="audit-btn">
+            <span class="nav-icon">🔬</span> Запустить Аудит
+        </button>
+    </div>
+
+    <!-- Main -->
+    <div class="main">
+        <div class="topbar">
+            <div>
+                <div class="page-title" id="page-title">⚠️ Расхождения и Нарушения</div>
+                <div class="page-sub" id="last-updated">Загрузка данных...</div>
+            </div>
+            <div class="btn-row">
+                <button class="btn btn-success" onclick="exportCSV()">⬇️ Экспорт для ГНК (CSV)</button>
+                <button class="btn btn-primary" onclick="loadStats()">🔄 Обновить</button>
+            </div>
+        </div>
+
+        <!-- Stats -->
+        <div class="stat-grid">
+            <div class="stat-card danger">
+                <div class="stat-icon">🚨</div>
+                <div class="stat-label">Активных нарушений</div>
+                <div class="stat-value" id="stat-unresolved" style="color:var(--error)">—</div>
+                <div class="stat-sub">требуют проверки</div>
+            </div>
+            <div class="stat-card danger">
+                <div class="stat-icon">👻</div>
+                <div class="stat-label">Незарегистрированные сессии</div>
+                <div class="stat-value" id="stat-unregistered" style="color:var(--error)">—</div>
+                <div class="stat-sub">сеансы без брони</div>
+            </div>
+            <div class="stat-card warning">
+                <div class="stat-icon">💸</div>
+                <div class="stat-label">Расхождения в оплате</div>
+                <div class="stat-value" id="stat-payment" style="color:var(--warning)">—</div>
+                <div class="stat-sub">разная сумма</div>
+            </div>
+            <div class="stat-card danger">
+                <div class="stat-icon">💰</div>
+                <div class="stat-label">Теневая выручка (всего)</div>
+                <div class="stat-value" id="stat-shadow" style="color:var(--error);font-size:20px">—</div>
+                <div class="stat-sub">UZS в обход системы</div>
+            </div>
+        </div>
+
+        <!-- Filter bar -->
+        <div class="filter-bar">
+            <label style="font-size:12px;color:var(--muted)">Клуб:</label>
+            <select id="club-filter" onchange="loadDiscrepancies()">
+                <option value="">Все клубы</option>
+            </select>
+            <label style="font-size:12px;color:var(--muted)">Тип:</label>
+            <select id="type-filter" onchange="loadDiscrepancies()">
+                <option value="">Все типы</option>
+                <option value="UNREGISTERED_SESSION">Незарег. сессии</option>
+                <option value="PAYMENT_MISMATCH">Расхождение суммы</option>
+                <option value="BOOKING_NO_SESSION">Бронь без сессии</option>
+            </select>
+            <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);cursor:pointer">
+                <input type="checkbox" id="show-resolved" onchange="loadDiscrepancies()"> Показать решённые
+            </label>
+        </div>
+
+        <!-- Discrepancies Table -->
+        <div class="card">
+            <div class="section-title">
+                ⚠️ Список нарушений
+                <span class="badge" id="disc-count">—</span>
+            </div>
+            <table>
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Тип</th>
+                        <th>ПК</th>
+                        <th>Дата сессии</th>
+                        <th>Сумма DA</th>
+                        <th>Сумма iCafe</th>
+                        <th>Теневая</th>
+                        <th>Статус</th>
+                        <th>Действие</th>
+                    </tr>
+                </thead>
+                <tbody id="disc-table">
+                    <tr><td colspan="9" style="text-align:center;color:var(--muted);padding:24px">Загрузка...</td></tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Description area -->
+        <div class="card" id="desc-card" style="display:none">
+            <div class="section-title">📋 Детали нарушения</div>
+            <p id="desc-text" style="font-size:13px;line-height:1.6;color:var(--text)"></p>
+        </div>
+    </div>
+
+    <script>
+        const API = window.location.origin + '/api';
+        let adminTgId = localStorage.getItem('admin_tg_id');
+        let selectedClubId = '';
+
+        // ── Login ──────────────────────────────────────────────────────────
+        function loginViaTelegram() {
+            const tg = window.Telegram?.WebApp;
+            if (tg && tg.initData) {
+                adminTgId = tg.initDataUnsafe?.user?.id;
+                localStorage.setItem('admin_tg_id', adminTgId);
+                loadStats();
+            } else {
+                document.getElementById('tg-login-btn-area').style.display = 'none';
+                document.getElementById('tg-widget-area').style.display = 'block';
+                loadTgWidget();
+            }
+        }
+
+        async function loadTgWidget() {
+            let botUsername = 'ArenaSlot_bot';
+            try { const r = await fetch('/api/config'); botUsername = (await r.json()).bot_username || botUsername; } catch (e) {}
+            const s = document.createElement('script');
+            s.src = 'https://telegram.org/js/telegram-widget.js?22';
+            s.setAttribute('data-telegram-login', botUsername);
+            s.setAttribute('data-size', 'large'); s.setAttribute('data-radius', '10');
+            s.setAttribute('data-onauth', 'onTgAuth(user)'); s.setAttribute('data-request-access', 'write');
+            document.getElementById('tg-widget-area').appendChild(s);
+        }
+
+        function onTgAuth(user) {
+            adminTgId = user.id;
+            localStorage.setItem('admin_tg_id', user.id);
+            loadStats();
+        }
+
+        if (adminTgId) {
+            document.getElementById('login-overlay').style.display = 'none';
+            loadStats();
+            loadDiscrepancies();
+            loadClubs();
+        }
+
+        function authHeaders() {
+            return { 'X-Admin-TG-ID': adminTgId || '' };
+        }
+
+        async function checkAuth(resp) {
+            if (resp.status === 401 || resp.status === 403) {
+                document.getElementById('login-error').style.display = 'block';
+                document.getElementById('login-overlay').style.display = 'flex';
+                localStorage.clear(); adminTgId = null; return false;
+            }
+            document.getElementById('login-overlay').style.display = 'none';
+            return true;
+        }
+
+        // ── Stats ──────────────────────────────────────────────────────────
+        async function loadStats() {
+            try {
+                const url = selectedClubId ? `${API}/audit/stats/${selectedClubId}` : `${API}/audit/stats`;
+                const r = await fetch(url, { headers: authHeaders() });
+                if (!await checkAuth(r)) return;
+                const d = await r.json();
+                document.getElementById('stat-unresolved').textContent = d.unresolved ?? '—';
+                document.getElementById('stat-unregistered').textContent = d.by_type?.UNREGISTERED_SESSION ?? '—';
+                document.getElementById('stat-payment').textContent = d.by_type?.PAYMENT_MISMATCH ?? '—';
+                const shadow = d.total_shadow_revenue_uzs;
+                document.getElementById('stat-shadow').textContent = shadow != null ? Number(shadow).toLocaleString('ru') + ' UZS' : '—';
+                document.getElementById('last-updated').textContent = 'Обновлено: ' + new Date().toLocaleTimeString('ru');
+            } catch (e) {
+                document.getElementById('last-updated').textContent = 'Ошибка загрузки';
+            }
+        }
+
+        // ── Clubs dropdown ─────────────────────────────────────────────────
+        async function loadClubs() {
+            try {
+                const r = await fetch(`${API}/web/clubs`);
+                const d = await r.json();
+                const sel = document.getElementById('club-filter');
+                (d.clubs || []).filter(c => c.driver_type === 'ICAFE').forEach(c => {
+                    const opt = document.createElement('option');
+                    opt.value = c.id; opt.textContent = c.name;
+                    sel.appendChild(opt);
+                });
+            } catch(e) {}
+        }
+
+        // ── Discrepancies ──────────────────────────────────────────────────
+        async function loadDiscrepancies() {
+            const clubId = document.getElementById('club-filter').value || '1';
+            const typeFilter = document.getElementById('type-filter').value;
+            const showResolved = document.getElementById('show-resolved').checked;
+
+            const tbody = document.getElementById('disc-table');
+            tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:24px">Загрузка...</td></tr>';
+
+            try {
+                const url = `${API}/audit/discrepancies/${clubId}?include_resolved=${showResolved}&limit=200`;
+                const r = await fetch(url, { headers: authHeaders() });
+                if (!await checkAuth(r)) return;
+                let { discrepancies } = await r.json();
+
+                if (typeFilter) discrepancies = discrepancies.filter(d => d.discrepancy_type === typeFilter);
+
+                document.getElementById('disc-count').textContent = discrepancies.length;
+
+                if (!discrepancies.length) {
+                    tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:var(--success);padding:24px">✅ Нарушений не обнаружено</td></tr>';
+                    return;
+                }
+
+                const typeLabels = {
+                    'UNREGISTERED_SESSION': '👻 Незарег. сессия',
+                    'PAYMENT_MISMATCH': '💸 Расхождение суммы',
+                    'BOOKING_NO_SESSION': '📋 Бронь без сессии',
+                    'DURATION_MISMATCH': '⏱️ Разная длительность',
+                };
+
+                tbody.innerHTML = discrepancies.map(d => {
+                    const date = d.session_date ? new Date(d.session_date).toLocaleString('ru', {day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}) : '—';
+                    const shadow = d.shadow_amount ? `<span class="shadow-amount">${Number(d.shadow_amount).toLocaleString('ru')}</span>` : '—';
+                    const statusBadge = d.is_resolved
+                        ? '<span class="resolved-badge">✅ Решено</span>'
+                        : '<span class="badge">⚠️ Активно</span>';
+                    return `<tr>
+                        <td style="color:var(--muted);font-family:monospace">#${d.id}</td>
+                        <td><span class="disc-type type-${d.discrepancy_type}">${typeLabels[d.discrepancy_type] || d.discrepancy_type}</span></td>
+                        <td><b>${d.pc_name || '—'}</b></td>
+                        <td style="font-size:12px">${date}</td>
+                        <td style="color:var(--primary)">${d.da_amount != null ? Number(d.da_amount).toLocaleString('ru') + ' сум' : '—'}</td>
+                        <td style="color:var(--warning)">${d.icafe_amount != null ? Number(d.icafe_amount).toLocaleString('ru') + ' сум' : '—'}</td>
+                        <td>${shadow}</td>
+                        <td>${statusBadge}</td>
+                        <td>
+                            <button class="btn btn-danger" style="padding:4px 10px;font-size:11px" onclick="showDesc('${(d.description||'').replace(/'/g,"\\'")}')">📋 Детали</button>
+                            ${!d.is_resolved ? `<button class="btn btn-success" style="padding:4px 10px;font-size:11px;margin-top:4px" onclick="resolveDisc(${d.id})">✅ Решено</button>` : ''}
+                        </td>
+                    </tr>`;
+                }).join('');
+            } catch (e) {
+                tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;color:var(--error);padding:24px">Ошибка: ${e.message}</td></tr>`;
+            }
+        }
+
+        function showDesc(text) {
+            const card = document.getElementById('desc-card');
+            document.getElementById('desc-text').textContent = text;
+            card.style.display = 'block';
+            card.scrollIntoView({ behavior: 'smooth' });
+        }
+
+        async function resolveDisc(id) {
+            const note = prompt('Укажите причину / объяснение (для отчёта):');
+            if (!note) return;
+            const r = await fetch(`${API}/audit/resolve/${id}?note=${encodeURIComponent(note)}`, {
+                method: 'POST', headers: authHeaders()
+            });
+            if (r.ok) { alert('✅ Отмечено как решённое'); loadDiscrepancies(); loadStats(); }
+        }
+
+        // ── Sync & Audit ───────────────────────────────────────────────────
+        async function runSync() {
+            const btn = document.getElementById('sync-btn');
+            btn.textContent = '⏳ Синхронизация...';
+            try {
+                const clubId = document.getElementById('club-filter').value || '';
+                const url = clubId ? `${API}/audit/sync/${clubId}` : `${API}/audit/sync-all`;
+                const r = await fetch(url, { method: 'POST', headers: authHeaders() });
+                const d = await r.json();
+                alert(`✅ Синхронизация завершена!\nОбновлено сессий: ${d.new_sessions_synced ?? JSON.stringify(d.results)}`);
+                loadDiscrepancies();
+            } catch (e) { alert('❌ Ошибка синхронизации: ' + e.message); }
+            btn.innerHTML = '<span class="nav-icon">🔄</span> Синхронизировать';
+        }
+
+        async function runAudit() {
+            const btn = document.getElementById('audit-btn');
+            btn.textContent = '⏳ Анализ...';
+            try {
+                const clubId = document.getElementById('club-filter').value || '';
+                const url = clubId ? `${API}/audit/run/${clubId}` : `${API}/audit/run-all`;
+                const r = await fetch(url, { method: 'POST', headers: authHeaders() });
+                const d = await r.json();
+                const count = d.discrepancies_found ?? d.results?.reduce((s,x) => s + (x.discrepancies_found||0), 0) ?? 0;
+                const shadow = d.total_shadow_revenue_uzs ?? 0;
+                alert(`✅ Аудит завершён!\n\nНайдено нарушений: ${count}\nОценочная теневая выручка: ${Number(shadow).toLocaleString('ru')} UZS`);
+                loadStats();
+                loadDiscrepancies();
+            } catch (e) { alert('❌ Ошибка аудита: ' + e.message); }
+            btn.innerHTML = '<span class="nav-icon">🔬</span> Запустить Аудит';
+        }
+
+        async function exportCSV() {
+            const clubId = document.getElementById('club-filter').value || '1';
+            if (!clubId) { alert('Сначала выберите клуб для экспорта'); return; }
+            window.open(`${API}/audit/export/${clubId}?include_resolved=true&X-Admin-TG-ID=${adminTgId}`, '_blank');
+        }
+
+        // ── Auto refresh ───────────────────────────────────────────────────
+        setInterval(() => { if (adminTgId) { loadStats(); } }, 60000);
+    </script>
+</body>
+</html>

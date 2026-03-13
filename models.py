@@ -358,3 +358,104 @@ class BarOrder(Base):
 
     user = relationship("User")
     club = relationship("Club")
+
+
+# ====================== ICAFE AUDIT MODULE ======================
+
+class IcafeSession(Base):
+    """Raw session data synced from iCafe Cloud API for audit purposes."""
+    __tablename__ = "icafe_sessions"
+
+    id = Column(Integer, primary_key=True, index=True)
+    club_id = Column(Integer, ForeignKey("clubs.id"), nullable=False, index=True)
+    # iCafe Cloud identifiers
+    icafe_session_id = Column(String, nullable=False, index=True)  # iCafe's own session ID
+    icafe_pc_id = Column(String, nullable=False, index=True)        # PC ID in iCafe
+    icafe_pc_name = Column(String, nullable=True)                   # PC Name (e.g. "PC-7")
+    # Session timing
+    start_time = Column(DateTime(timezone=True), nullable=False, index=True)
+    end_time = Column(DateTime(timezone=True), nullable=True)       # Null if still active
+    duration_minutes = Column(Integer, nullable=True)
+    # Financial data from iCafe
+    icafe_price = Column(Integer, nullable=True)                    # Price charged by iCafe (UZS)
+    icafe_paid = Column(Integer, nullable=True)                     # Amount actually paid in iCafe
+    # Raw data snapshot
+    raw_data = Column(JSON, nullable=True)                          # Full raw JSON from iCafe
+    # Sync metadata
+    synced_at = Column(DateTime(timezone=True), default=lambda: now_utc())
+
+    club = relationship("Club")
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "club_id": self.club_id,
+            "icafe_session_id": self.icafe_session_id,
+            "icafe_pc_id": self.icafe_pc_id,
+            "icafe_pc_name": self.icafe_pc_name,
+            "start_time": self.start_time.isoformat() if self.start_time else None,
+            "end_time": self.end_time.isoformat() if self.end_time else None,
+            "duration_minutes": self.duration_minutes,
+            "icafe_price": self.icafe_price,
+            "icafe_paid": self.icafe_paid,
+            "synced_at": self.synced_at.isoformat() if self.synced_at else None,
+        }
+
+
+class AuditDiscrepancy(Base):
+    """
+    Detected mismatch between Digital Arena booking and iCafe session data.
+    This is the core of the shadow economy detection module.
+    """
+    __tablename__ = "audit_discrepancies"
+
+    id = Column(Integer, primary_key=True, index=True)
+    club_id = Column(Integer, ForeignKey("clubs.id"), nullable=False, index=True)
+    detected_at = Column(DateTime(timezone=True), default=lambda: now_utc(), index=True)
+
+    # Type of discrepancy
+    # Possible values:
+    #   "UNREGISTERED_SESSION"  - iCafe session has no matching DA booking
+    #   "PAYMENT_MISMATCH"      - Booking exists in DA but price differs from iCafe
+    #   "BOOKING_NO_SESSION"    - DA booking confirmed but no iCafe session found
+    #   "DURATION_MISMATCH"     - Booked duration differs significantly from actual
+    discrepancy_type = Column(String, nullable=False, index=True)
+
+    # Reference IDs
+    booking_id = Column(Integer, ForeignKey("bookings.id"), nullable=True)  # DA booking (if exists)
+    icafe_session_id = Column(Integer, ForeignKey("icafe_sessions.id"), nullable=True)
+
+    # Financial impact
+    da_amount = Column(Integer, nullable=True)       # Amount recorded in Digital Arena (UZS)
+    icafe_amount = Column(Integer, nullable=True)    # Amount in iCafe Cloud (UZS)
+    shadow_amount = Column(Integer, nullable=True)   # Estimated unregistered revenue (UZS)
+
+    # Time data
+    session_date = Column(DateTime(timezone=True), nullable=True)  # When the session occurred
+    pc_name = Column(String, nullable=True)                        # Which PC
+
+    # Resolution
+    is_resolved = Column(Boolean, default=False)
+    resolved_at = Column(DateTime(timezone=True), nullable=True)
+    resolution_note = Column(String, nullable=True)
+
+    # Detailed description for the report
+    description = Column(String, nullable=True)
+
+    club = relationship("Club")
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "club_id": self.club_id,
+            "detected_at": self.detected_at.isoformat() if self.detected_at else None,
+            "discrepancy_type": self.discrepancy_type,
+            "booking_id": self.booking_id,
+            "da_amount": self.da_amount,
+            "icafe_amount": self.icafe_amount,
+            "shadow_amount": self.shadow_amount,
+            "session_date": self.session_date.isoformat() if self.session_date else None,
+            "pc_name": self.pc_name,
+            "is_resolved": self.is_resolved,
+            "description": self.description,
+        }
