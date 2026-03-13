@@ -9,14 +9,41 @@ services:
     startCommand: bash start.sh
     envVars:
       - key: BOT_TOKEN
-        sync: false
+        sync: false   # Set manually in Render dashboard
+
+      # PostgreSQL URL — automatically injected from the DB below
       - key: DB_URL
-        sync: false
+        fromDatabase:
+          name: arena-postgres
+          property: connectionString
+
       - key: ADMIN_IDS
-        sync: false
+        sync: false   # Set manually in Render dashboard
+
       - key: SECRET_KEY
-        sync: false
+        generateValue: true   # Render auto-generates a secure random key
+
       - key: BASE_URL
         value: https://digital-arena-njok.onrender.com
+
+      - key: ALLOWED_ORIGINS
+        value: https://digital-arena-njok.onrender.com,https://arenaslotz.web.app,https://arenaslot-123ab.web.app
+
       - key: REDIS_HOST
         value: localhost
+
+      # Government portal access token — change this to something secret!
+      - key: GOV_API_TOKEN
+        sync: false  # Set manually in Render dashboard
+
+      # Sentry error tracking (optional)
+      - key: SENTRY_DSN
+        sync: false
+
+# ── Free PostgreSQL database (Render managed) ─────────────────────────────────
+databases:
+  - name: arena-postgres
+    databaseName: digital_arena
+    user: arena_user
+    plan: free
+    region: frankfurt

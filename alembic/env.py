@@ -1,74 +1,94 @@
+"""
+alembic/env.py
+==============
+Alembic migration environment.
+Reads DB connection URL from the app's config (which in turn reads from .env or
+environment variables set by Render/Docker).
+
+Works with both SQLite (local dev) and PostgreSQL (production).
+"""
 import asyncio
+import os
 from logging.config import fileConfig
 
 from sqlalchemy import pool
 from sqlalchemy.ext.asyncio import async_engine_from_config
-
 from alembic import context
 
-# this is the Alembic Config object, which provides
-# access to the values within the .ini file in use.
+# ── Alembic config object ────────────────────────────────────────────────────
 config = context.config
 
-# Interpret the config file for Python logging.
-# This line sets up loggers basically.
+# Set up loggers from alembic.ini
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-# add your model's MetaData object here
-# for 'autogenerate' support
+# ── Import ALL models so Alembic can autogenerate migrations ─────────────────
 from database import Base
-from models import User, Club, Computer, Booking, Admin, RestaurantTable # Import all models
+from models import (
+    User, Club, Computer, Booking, Admin,
+    RestaurantTable, ClubZoneSetting, AuditLog,
+    Review, PromoCode, AppAuthCode, AppSession,
+    Payment, BarItem, BarOrder,
+    IcafeSession, AuditDiscrepancy,
+)
+
 target_metadata = Base.metadata
 
-# other values from the config, defined by the needs of env.py,
-# can be acquired:
-# my_important_option = config.get_main_option("my_important_option")
-# ... etc.
 
-
-def run_migrations_offline() -> None:
-    """Run migrations in 'offline' mode.
-
-    This configures the context with just a URL
-    and not an Engine, though an Engine is acceptable
-    here as well.  By skipping the Engine creation
-    we don't even need a DBAPI to be available.
-
-    Calls to context.execute() here emit the given string to the
-    script output.
-
+# ── Read DB URL from environment (same as the app does) ──────────────────────
+def get_url() -> str:
     """
-    url = config.get_main_option("sqlalchemy.url")
+    Priority:
+    1. DATABASE_URL env var (set automatically by Render PostgreSQL addon)
+    2. DB_URL env var (our custom var set in render.yaml / .env)
+    3. Fallback to alembic.ini [sqlalchemy.url]
+    """
+    from config import settings
+    url = settings.async_db_url
+    # Alembic needs the sync URL for certain operations — but since we use
+    # async_engine_from_config we keep the async+asyncpg URL.
+    return url
+
+
+# ── Offline mode (generate SQL without connecting) ───────────────────────────
+def run_migrations_offline() -> None:
+    url = get_url()
     context.configure(
         url=url,
         target_metadata=target_metadata,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
+        # Compare server defaults so Alembic detects DEFAULT value changes
+        compare_server_default=True,
     )
-
     with context.begin_transaction():
         context.run_migrations()
 
 
+# ── Online mode (connect and migrate) ────────────────────────────────────────
 def do_run_migrations(connection) -> None:
-    context.configure(connection=connection, target_metadata=target_metadata)
-
+    context.configure(
+        connection=connection,
+        target_metadata=target_metadata,
+        compare_server_default=True,
+        # For PostgreSQL: include schemas
+        include_schemas=True,
+    )
     with context.begin_transaction():
         context.run_migrations()
 
 
 async def run_migrations_online() -> None:
-    """Run migrations in 'online' mode.
+    url = get_url()
 
-    In this scenario we need to create an Engine
-    and associate a connection with the context.
+    # Override the sqlalchemy.url from alembic.ini with our dynamic URL
+    configuration = config.get_section(config.config_ini_section, {})
+    configuration["sqlalchemy.url"] = url
 
-    """
     connectable = async_engine_from_config(
-        config.get_section(config.config_ini_section, {}),
+        configuration,
         prefix="sqlalchemy.",
-        poolclass=pool.NullPool,
+        poolclass=pool.NullPool,  # NullPool: don't keep connections open during migrations
     )
 
     async with connectable.connect() as connection:
@@ -77,6 +97,7 @@ async def run_migrations_online() -> None:
     await connectable.dispose()
 
 
+# ── Entry point ───────────────────────────────────────────────────────────────
 if context.is_offline_mode():
     run_migrations_offline()
 else:
