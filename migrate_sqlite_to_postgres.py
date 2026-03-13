@@ -3,19 +3,6 @@
 migrate_sqlite_to_postgres.py
 ==============================
 Migrates ALL data from a local SQLite database to a PostgreSQL database.
-
-Usage:
-    python migrate_sqlite_to_postgres.py
-
-Before running:
-    1. Make sure you have the PostgreSQL URL (from Render dashboard)
-    2. Set POSTGRES_URL in this script or as an env variable
-    3. Run: pip install asyncpg aiosqlite sqlalchemy
-
-What it does:
-    - Reads every row from every table in SQLite
-    - Inserts them into PostgreSQL (skips duplicates)
-    - Shows a progress summary at the end
 """
 
 import asyncio
@@ -24,16 +11,14 @@ import sys
 import sqlite3
 from datetime import datetime
 
-# ── CONFIG ────────────────────────────────────────────────────────────────────
+# -- CONFIG --------------------------------------------------------------------
 # Path to your SQLite database file
-SQLITE_PATH = "digital_arena.db"
+SQLITE_PATH = r"c:\Users\MS-Fin-10\Documents\GitHub\Digital-Arena\bot_database.db"
 
 # PostgreSQL connection URL
-# Get this from Render Dashboard → Your PostgreSQL service → "External Database URL"
-# Format: postgresql://user:password@host:5432/dbname
 POSTGRES_URL = os.getenv("POSTGRES_URL", "")  # Set as env var or paste here
 
-# Tables to migrate (in order — respects foreign keys)
+# Tables to migrate (in order - respects foreign keys)
 TABLES_ORDER = [
     "users",
     "clubs",
@@ -54,7 +39,7 @@ TABLES_ORDER = [
     "audit_discrepancies",
 ]
 
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
 
 
 def read_sqlite_table(sqlite_path: str, table: str):
@@ -70,7 +55,7 @@ def read_sqlite_table(sqlite_path: str, table: str):
         return columns, [dict(row) for row in rows]
     except sqlite3.OperationalError as e:
         if "no such table" in str(e):
-            return [], []  # Table doesn't exist yet — skip
+            return [], []  # Table doesn't exist yet - skip
         raise
 
 
@@ -118,10 +103,8 @@ async def migrate_table_to_postgres(pg_url: str, table: str, columns: list, rows
                     inserted += 1
                 else:
                     skipped += 1
-            except Exception as e:
+            except Exception:
                 skipped += 1
-                # Uncomment for debug:
-                # print(f"    ⚠️  Row skip: {e}")
 
     finally:
         await conn.close()
@@ -131,44 +114,36 @@ async def migrate_table_to_postgres(pg_url: str, table: str, columns: list, rows
 
 async def main():
     print("=" * 60)
-    print("  Digital Arena — SQLite → PostgreSQL Migration Tool")
+    print("  Digital Arena - SQLite -> PostgreSQL Migration Tool")
     print("=" * 60)
 
-    # ── Check SQLite file ────────────────────────────────────────────────────
+    # -- Check SQLite file ----------------------------------------------------
     if not os.path.exists(SQLITE_PATH):
-        print(f"\n❌ SQLite file not found: {SQLITE_PATH}")
-        print("   Make sure you run this script from the project root directory.")
+        print(f"\n[!] SQLite file not found: {SQLITE_PATH}")
         sys.exit(1)
-    print(f"\n✅ SQLite file found: {SQLITE_PATH}")
+    print(f"\n[OK] SQLite file found: {SQLITE_PATH}")
 
-    # ── Check PostgreSQL URL ─────────────────────────────────────────────────
+    # -- Check PostgreSQL URL -------------------------------------------------
     pg_url = POSTGRES_URL or os.getenv("POSTGRES_URL", "")
     if not pg_url:
-        print("\n❌ PostgreSQL URL not set!")
-        print("\n   How to get it:")
-        print("   1. Go to Render Dashboard → your PostgreSQL service")
-        print("   2. Click 'Connect' → copy 'External Database URL'")
-        print("   3. Run: set POSTGRES_URL=postgresql://... (Windows)")
-        print("      or:  export POSTGRES_URL=postgresql://... (Mac/Linux)")
-        print("   4. Then run this script again\n")
+        print("\n[!] PostgreSQL URL not set!")
         sys.exit(1)
-    print(f"✅ PostgreSQL URL: {pg_url[:30]}...")
+    print(f"[OK] PostgreSQL URL: {pg_url[:30]}...")
 
-    # ── Test PostgreSQL connection ────────────────────────────────────────────
+    # -- Test PostgreSQL connection --------------------------------------------
     try:
         import asyncpg
         url = pg_url.replace("postgres://", "postgresql://", 1)
         test_conn = await asyncpg.connect(url)
         pg_version = await test_conn.fetchval("SELECT version()")
         await test_conn.close()
-        print(f"✅ PostgreSQL connected: {pg_version[:40]}...")
+        print(f"[OK] PostgreSQL connected: {pg_version[:40]}...")
     except Exception as e:
-        print(f"\n❌ Cannot connect to PostgreSQL: {e}")
-        print("   Check that the URL is correct and the DB is running.")
+        print(f"\n[!] Cannot connect to PostgreSQL: {e}")
         sys.exit(1)
 
-    # ── Count total SQLite rows ───────────────────────────────────────────────
-    print(f"\n📦 Reading from SQLite ({SQLITE_PATH})...\n")
+    # -- Count total SQLite rows -----------------------------------------------
+    print(f"\n[*] Reading from SQLite ({SQLITE_PATH})...\n")
     total_rows = 0
     table_data = {}
 
@@ -178,45 +153,44 @@ async def main():
         count = len(rows)
         total_rows += count
         if count > 0:
-            print(f"   📋 {table:<30} {count:>5} rows")
+            print(f"   [TAB] {table:<30} {count:>5} rows")
 
     if total_rows == 0:
-        print("   ⚠️  SQLite database is empty — nothing to migrate.")
+        print("   [!] SQLite database is empty - nothing to migrate.")
         sys.exit(0)
 
     print(f"\n   Total: {total_rows} rows to migrate")
 
-    # ── Ask for confirmation ──────────────────────────────────────────────────
-    print("\n" + "─" * 60)
-    confirm = input("▶️  Start migration? (yes/no): ").strip().lower()
+    # -- Ask for confirmation --------------------------------------------------
+    print("\n" + "-" * 60)
+    # Using non-interactive confirm if pipe is used
+    if sys.stdin.isatty():
+        confirm = input("[?] Start migration? (yes/no): ").strip().lower()
+    else:
+        confirm = "yes"
+    
     if confirm not in ("yes", "y", "да"):
         print("Migration cancelled.")
         sys.exit(0)
 
-    # ── Migrate ───────────────────────────────────────────────────────────────
-    print("\n🚀 Migrating...\n")
+    # -- Migrate ---------------------------------------------------------------
+    print("\n[*] Migrating...\n")
     grand_total = 0
-    results = {}
 
     for table in TABLES_ORDER:
         columns, rows = table_data[table]
         if not rows:
             continue
-        print(f"   ⬆️  {table:<30}", end="", flush=True)
+        print(f"   [UP] {table:<30}", end="", flush=True)
         inserted = await migrate_table_to_postgres(pg_url, table, columns, rows)
-        results[table] = {"total": len(rows), "inserted": inserted, "skipped": len(rows) - inserted}
         grand_total += inserted
-        print(f" → {inserted}/{len(rows)} inserted ✅")
+        print(f" -> {inserted}/{len(rows)} inserted OK")
 
-    # ── Summary ───────────────────────────────────────────────────────────────
+    # -- Summary ---------------------------------------------------------------
     print("\n" + "=" * 60)
-    print("  ✅ Migration Complete!")
+    print("  [OK] Migration Complete!")
     print("=" * 60)
     print(f"\n  Total rows migrated: {grand_total} / {total_rows}")
-    print("\n  Next steps:")
-    print("  1. Deploy to Render (GitHub push)")
-    print("  2. Render will run 'alembic upgrade head' automatically")
-    print("  3. Your PostgreSQL DB will have all the data!")
     print()
 
 

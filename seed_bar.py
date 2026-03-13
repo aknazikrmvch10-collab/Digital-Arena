@@ -12,7 +12,7 @@ async def seed_bar_items():
                 BarItem(name="Сэндвич с курицей", category="Еда", price=28000, image_url="https://images.unsplash.com/photo-1528735602780-2552fd46c7af?w=300&q=80"),
             ]
             session.add_all(items)
-    print("✅ Добавлены демо-товары в бар!")
+    print("[OK] Seeded demo items to the bar!")
 
 if __name__ == "__main__":
     asyncio.run(seed_bar_items())
