@@ -1,6 +1,6 @@
 // Digital Arena PWA — Service Worker
-// Версия: v3. Увеличивайте при каждом обновлении контента!
-const CACHE_NAME = 'digital-arena-v3';
+// Версия: v4. Увеличивайте при каждом обновлении контента!
+const CACHE_NAME = 'digital-arena-v4';
 
 // Файлы, которые кешируем для работы офлайн
 const STATIC_ASSETS = [
