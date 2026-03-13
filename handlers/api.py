@@ -619,188 +619,200 @@ async def create_booking(booking: BookingRequest, request: Request, user_data: d
     booking.user_id = user_data["id"]
     
     async with async_session_factory() as session:
-        # ✅ FIX: Wrap entire booking process in transaction
-        async with session.begin():
-            # Get club (no lock needed, club data doesn't change during booking)
-            club = await session.get(Club, booking.club_id)
-            if not club:
-                raise HTTPException(status_code=404, detail="Club not found")
+        # No session.begin() here to avoid SQLite locking when mock driver uses its own session.
+        # Get club
+        club = await session.get(Club, booking.club_id)
+        if not club:
+            raise HTTPException(status_code=404, detail="Club not found")
+        
+        venue_type = getattr(club, 'venue_type', 'computer_club')
             
-            venue_type = getattr(club, 'venue_type', 'computer_club')
-                
-            # Get or create user
-            logger.info("Booking Request", booking=booking.dict())
-            
-            result = await session.execute(select(User).where(User.tg_id == booking.user_id))
-            user = result.scalars().first()
-            
-            if not user:
-                logger.info(f"User {booking.user_id} not found, creating new.")
-                user = User(tg_id=booking.user_id, full_name="WebApp User")
-                session.add(user)
-                await session.flush()  # ✅ Use flush instead of commit (stays in transaction)
-                await session.refresh(user)
-            
-            # ✅ SECURITY: Age verification check (relaxed for MVP PWA testing)
-            if user and not getattr(user, 'age_confirmed', True):
-                logger.warning(f"User {user.tg_id} booked without age verification via PWA.")
-                # We log it instead of blocking to ensure PWA booking works smoothly.
-                user.age_confirmed = True
-                # No raise HTTPException here
+        # Get or create user
+        logger.info("Booking Request", booking=booking.dict())
+        
+        result_user = await session.execute(select(User).where(User.tg_id == booking.user_id))
+        user = result_user.scalars().first()
+        
+        if not user:
+            logger.info(f"User {booking.user_id} not found, creating new.")
+            user = User(tg_id=booking.user_id, full_name="WebApp User")
+            session.add(user)
+            await session.commit()
+            await session.refresh(user)
+        
+        # ✅ SECURITY: Age verification check
+        if user and not getattr(user, 'age_confirmed', True):
+            logger.warning(f"User {user.tg_id} booked without age verification via PWA.")
+            user.age_confirmed = True
+            await session.commit()
 
+        # Ensure start_time is naive UTC
+        if booking.start_time.tzinfo is not None:
+            import datetime as _dt
+            booking_start_naive = booking.start_time.astimezone(_dt.timezone.utc).replace(tzinfo=None)
+        else:
+            booking_start_naive = booking.start_time
+        
+        # Verify item exists
+        item_name = f'#{booking.computer_id}'
+        zone_name = ''
+        if venue_type == 'restaurant':
+            item = await session.get(RestaurantTable, int(booking.computer_id))
+            if not item:
+                raise HTTPException(status_code=404, detail="Table not found")
+            item_name = item.name
+            zone_name = item.zone
+        else:
+            # Computer Club
+            item = await session.get(Computer, int(booking.computer_id))
+            if not item:
+                raise HTTPException(status_code=404, detail="Computer not found")
+            item_name = item.name
+            zone_name = item.zone
+        
+        # --- Financials & Loyalty Calculations ---
+        price_per_hour = getattr(item, 'price_per_hour', 0)
+        base_price = int((booking.duration_minutes / 60) * price_per_hour)
+        discount_amount = 0
+        
+        # Promo code logic
+        if getattr(booking, 'promo_code', None):
+            from models import PromoCode
+            promo_res = await session.execute(select(PromoCode).where(PromoCode.code == booking.promo_code.upper()))
+            promo = promo_res.scalars().first()
+            if promo and promo.is_valid():
+                if promo.club_id is None or promo.club_id == club.id:
+                    discount_amount = int(base_price * (promo.discount_percent / 100))
+                    promo.uses_count += 1
+                    await session.commit()
+        
+        total_price = max(0, base_price - discount_amount)
+        
+        # Balance deduction (temporary commit)
+        deducted_balance = 0
+        if getattr(booking, 'use_balance', False) and getattr(user, 'balance', 0) > 0:
+            deduct = min(user.balance, total_price)
+            user.balance -= deduct
+            total_price -= deduct
+            deducted_balance = deduct
+            await session.commit()
+        
+        # Cashback calculation
+        loyalty = getattr(user, 'loyalty_level', 'Начинающий')
+        pct = 0.05 if loyalty == 'Начинающий' else 0.10 if loyalty == 'Продвинутый' else 0.15
+        earned_points = int(total_price * pct)
+        
+        # Initialize driver and reserve
+        try:
+            driver = DriverFactory.get_driver(
+                club.driver_type or "MOCK", 
+                {"club_id": club.id, **(club.connection_config or {})}
+            )
             
-            # Ensure start_time is naive UTC (strip tz info without converting)
-            if booking.start_time.tzinfo is not None:
-                # Convert to UTC then remove tzinfo to store as naive UTC in DB
-                import datetime as _dt
-                booking_start_naive = booking.start_time.astimezone(_dt.timezone.utc).replace(tzinfo=None)
-            else:
-                booking_start_naive = booking.start_time
+            result_book = await driver.reserve_pc(
+                pc_id=booking.computer_id,
+                user_id=user.id,
+                start_time=booking_start_naive,
+                duration_minutes=booking.duration_minutes
+            )
             
-            # Verify item exists and get its name
-            if venue_type == 'restaurant':
-                item = await session.get(RestaurantTable, int(booking.computer_id))
-                if not item:
-                    raise HTTPException(status_code=404, detail="Table not found")
-            else:
-                # Computer Club
-                item = await session.get(Computer, int(booking.computer_id))
-                if not item:
-                    raise HTTPException(status_code=404, detail="Computer not found")
-            
-            # --- Financials & Loyalty Calculations ---
-            price_per_hour = getattr(item, 'price_per_hour', 0)
-            base_price = int((booking.duration_minutes / 60) * price_per_hour)
-            discount_amount = 0
-            
-            # Promo code logic
-            if getattr(booking, 'promo_code', None):
-                from models import PromoCode
-                promo_res = await session.execute(select(PromoCode).where(PromoCode.code == booking.promo_code.upper()))
-                promo = promo_res.scalars().first()
-                if promo and promo.is_valid():
-                    if promo.club_id is None or promo.club_id == club.id:
-                        discount_amount = int(base_price * (promo.discount_percent / 100))
-                        promo.uses_count += 1
-            
-            total_price = max(0, base_price - discount_amount)
-            
-            # Balance deduction
-            if getattr(booking, 'use_balance', False) and getattr(user, 'balance', 0) > 0:
-                deduct = min(user.balance, total_price)
-                user.balance -= deduct
-                total_price -= deduct
-            
-            # Cashback calculation
-            loyalty = getattr(user, 'loyalty_level', 'Начинающий')
-            pct = 0.05 if loyalty == 'Начинающий' else 0.10 if loyalty == 'Продвинутый' else 0.15
-            earned_points = int(total_price * pct)
-            # ----------------------------------------
-            
-            # Initialize driver and reserve
-            # Note: Driver's reserve_pc is now inside this transaction,
-            # so its conflict checks will be protected by transaction isolation
-            try:
-                driver = DriverFactory.get_driver(
-                    club.driver_type or "MOCK", 
-                    {"club_id": club.id, **(club.connection_config or {})}
-                )
+            if result_book.success:
+                logger.info("Booking success", booking_id=result_book.booking_id)
                 
-                result = await driver.reserve_pc(
-                    pc_id=booking.computer_id,
-                    user_id=user.id,
-                    start_time=booking_start_naive,
-                    duration_minutes=booking.duration_minutes
-                )
-                
-                if result.success:
-                    logger.info("Booking success", booking_id=result.booking_id)
-                    # Notify club admin AND user (fire-and-forget, non-blocking)
+                # Fetch mock booking or create a generic local booking record if external API
+                try:
+                    from models import Booking as _Booking
+                    from main import bot as _bot
+                    from background_tasks import notify_club_admin_new_booking
+                    import asyncio as _asyncio
+                    import datetime as _dt
+                    import random, string
+
+                    # First, attempt to see if mock driver already inserted it
                     try:
-                        from main import bot as _bot
-                        from background_tasks import notify_club_admin_new_booking
-                        from models import Booking as _Booking
-                        import asyncio as _asyncio
-                        import datetime as _dt
-
-                        new_booking_result = await session.execute(
-                            select(_Booking).where(_Booking.id == int(result.booking_id))
-                        )
+                        b_id = int(result_book.booking_id)
+                        new_booking_result = await session.execute(select(_Booking).where(_Booking.id == b_id))
                         new_booking = new_booking_result.scalars().first()
+                    except (ValueError, TypeError):
+                        new_booking = None
 
-                        if new_booking:
-                            new_booking.total_price = total_price
-                            new_booking.discount_amount = discount_amount
-                            new_booking.earned_points = earned_points
-                            
-                            # Notify admin
-                            _asyncio.create_task(
-                                notify_club_admin_new_booking(_bot, new_booking, user, club)
-                            )
-
-                            # 🎉 Notify USER with beautiful confirmation
-                            try:
-                                start_local = new_booking.start_time + _dt.timedelta(hours=5)
-                                end_local = start_local + _dt.timedelta(minutes=booking.duration_minutes)
-                                dur_h = booking.duration_minutes // 60
-                                dur_m = booking.duration_minutes % 60
-                                dur_str = f"{dur_h}ч {dur_m}мин" if dur_m else f"{dur_h}ч"
-                                if dur_h == 0:
-                                    dur_str = f"{dur_m} мин"
-                                item_name = getattr(item, 'name', f'#{booking.computer_id}')
-                                zone_name = getattr(item, 'zone', '')
-                                
-                                discount_str = f"\n📉 <b>Скидка:</b> {discount_amount:,} сум" if discount_amount > 0 else ""
-                                pts_str = f"\n🎁 <b>Кешбэк:</b> +{earned_points} баллов" if earned_points > 0 else ""
-
-                                confirm_msg = (
-                                    f"✅ <b>Бронь подтверждена!</b>\n\n"
-                                    f"🏢 <b>Клуб:</b> {club.name}\n"
-                                    f"💻 <b>Место:</b> {item_name}" + (f" ({zone_name})" if zone_name else "") + "\n"
-                                    f"📅 <b>Дата:</b> {start_local.strftime('%d.%m.%Y')}\n"
-                                    f"⏰ <b>Время:</b> {start_local.strftime('%H:%M')} — {end_local.strftime('%H:%M')}\n"
-                                    f"⏱ <b>Длительность:</b> {dur_str}\n"
-                                    f"💰 <b>Сумма к оплате:</b> {total_price:,} сум{discount_str}{pts_str}\n\n"
-                                    f"🎫 <b>ID брони:</b> #{result.booking_id}\n\n"
-                                    f"👉 Покажите QR-код на входе в клуб!\n"
-                                    f"📱 Открыть бронь: /my"
-                                )
-                                _asyncio.create_task(
-                                    _bot.send_message(
-                                        chat_id=user.tg_id,
-                                        text=confirm_msg,
-                                        parse_mode="HTML"
-                                    )
-                                )
-                            except Exception as _ue:
-                                logger.warning("Could not notify user about booking", error=str(_ue))
-
-                    except Exception as _e:
-                        logger.warning("Could not send booking notifications", error=str(_e))
-
-                    # Transaction will auto-commit at end of 'async with session.begin()'
-                    return {
-                        "success": True,
-                        "message": result.message,
-                        "booking_id": result.booking_id
-                    }
-                else:
-                    logger.warning("Booking failed", message=result.message)
-                    # Transaction will auto-rollback since we're not committing
-                    raise HTTPException(
-                        status_code=409,
-                        detail=result.message or "Booking conflict - time slot unavailable"
-                    )
+                    # If mock didn't create it (e.g. real external driver like iCafe), create local mirror
+                    if not new_booking:
+                        conf_code = "".join(random.choices(string.ascii_uppercase + string.digits, k=6))
+                        new_booking = _Booking(
+                            user_id=user.id,
+                            club_id=club.id,
+                            computer_name=item_name,
+                            item_id=int(booking.computer_id),
+                            start_time=booking_start_naive,
+                            end_time=booking_start_naive + _dt.timedelta(minutes=booking.duration_minutes),
+                            status="CONFIRMED",
+                            confirmation_code=conf_code
+                        )
+                        session.add(new_booking)
                     
-            except HTTPException:
-                raise  # Re-raise HTTP exceptions
-            except ValueError as e:
-                logger.error("Invalid booking parameters", error=str(e))
-                raise HTTPException(status_code=422, detail=f"Invalid parameters: {str(e)}")
-            except Exception as e:
-                # Transaction will auto-rollback on exception
-                logger.error("Booking Exception", error=str(e), exc_info=True)
-                raise HTTPException(status_code=500, detail="Booking failed - please try again later")
+                    # Store financials
+                    new_booking.total_price = total_price
+                    new_booking.discount_amount = discount_amount
+                    new_booking.earned_points = earned_points
+                    await session.commit()
+                    
+                    # Notify admin
+                    _asyncio.create_task(notify_club_admin_new_booking(_bot, new_booking, user, club))
+
+                    # Notify USER
+                    start_local = new_booking.start_time + _dt.timedelta(hours=5)
+                    end_local = start_local + _dt.timedelta(minutes=booking.duration_minutes)
+                    dur_h = booking.duration_minutes // 60
+                    dur_m = booking.duration_minutes % 60
+                    dur_str = f"{dur_h}ч {dur_m}мин" if dur_m else f"{dur_h}ч"
+                    if dur_h == 0:
+                        dur_str = f"{dur_m} мин"
+                    
+                    discount_str = f"\n📉 <b>Скидка:</b> {discount_amount:,} сум" if discount_amount > 0 else ""
+                    pts_str = f"\n🎁 <b>Кешбэк:</b> +{earned_points} баллов" if earned_points > 0 else ""
+
+                    confirm_msg = (
+                        f"✅ <b>Бронь подтверждена!</b>\n\n"
+                        f"🏢 <b>Клуб:</b> {club.name}\n"
+                        f"💻 <b>Место:</b> {item_name}" + (f" ({zone_name})" if zone_name else "") + "\n"
+                        f"📅 <b>Дата:</b> {start_local.strftime('%d.%m.%Y')}\n"
+                        f"⏰ <b>Время:</b> {start_local.strftime('%H:%M')} — {end_local.strftime('%H:%M')}\n"
+                        f"⏱ <b>Длительность:</b> {dur_str}\n"
+                        f"💰 <b>Сумма к оплате:</b> {total_price:,} сум{discount_str}{pts_str}\n\n"
+                        f"🎫 <b>ID брони:</b> #{result_book.booking_id}\n\n"
+                        f"👉 Покажите QR-код на входе в клуб!\n"
+                        f"📱 Открыть бронь: /my"
+                    )
+                    _asyncio.create_task(_bot.send_message(chat_id=user.tg_id, text=confirm_msg, parse_mode="HTML"))
+                except Exception as _ue:
+                    logger.warning("Could not process booking post-actions", error=str(_ue))
+
+                return {
+                    "success": True,
+                    "message": result_book.message,
+                    "booking_id": result_book.booking_id
+                }
+            else:
+                logger.warning("Booking failed", message=result_book.message)
+                if deducted_balance > 0:
+                    user.balance += deducted_balance
+                    await session.commit()
+                raise HTTPException(status_code=409, detail=result_book.message or "Booking conflict")
+                
+        except HTTPException:
+            raise
+        except ValueError as e:
+            if deducted_balance > 0:
+                user.balance += deducted_balance
+                await session.commit()
+            raise HTTPException(status_code=422, detail=f"Invalid parameters: {str(e)}")
+        except Exception as e:
+            if deducted_balance > 0:
+                user.balance += deducted_balance
+                await session.commit()
+            logger.error("Booking Exception", error=str(e), exc_info=True)
+            raise HTTPException(status_code=500, detail="Booking failed - please try again later")
 
 @router.get("/availability")
 @limiter.limit("20/minute")
