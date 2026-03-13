@@ -1,5 +1,6 @@
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.utils.keyboard import InlineKeyboardBuilder
+from config import settings
 
 def get_admin_main_menu() -> InlineKeyboardMarkup:
     """Main menu for admin panel."""
@@ -7,6 +8,7 @@ def get_admin_main_menu() -> InlineKeyboardMarkup:
     
     builder.button(text="📊 Статистика", callback_data="admin_stats")
     builder.button(text="🏢 Управление клубами", callback_data="admin_clubs")
+    builder.button(text="🔑 Панель владельца", web_app={"url": f"{settings.BASE_URL}/miniapp/club_admin.html"})
     builder.button(text="📢 Рассылка", callback_data="admin_broadcast")
     builder.button(text="🎫 Промокоды", callback_data="admin_promo_list")
     builder.button(text="❌ Закрыть", callback_data="admin_close")

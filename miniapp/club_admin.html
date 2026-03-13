@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Club Admin | Digital Arena</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-dark: #0f172a;
+            --bg-card: #1e293b;
+            --primary: #f59e0b; /* Amber for Club Admin */
+            --accent: #fbbf24;
+            --text-main: #f8fafc;
+            --text-dim: #94a3b8;
+            --success: #10b981;
+            --danger: #ef4444;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Outfit', sans-serif; }
+        body { background-color: var(--bg-dark); color: var(--text-main); min-height: 100vh; overflow-x: hidden; }
+
+        /* Sidebar/Header */
+        header {
+            padding: 20px;
+            background: rgba(30, 41, 59, 0.8);
+            backdrop-filter: blur(10px);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .logo { font-size: 1.5rem; font-weight: 700; color: var(--primary); display: flex; align-items: center; gap: 10px; }
+        .club-name { font-size: 0.9rem; color: var(--text-dim); }
+
+        /* Tabs */
+        .tabs {
+            display: flex;
+            gap: 10px;
+            padding: 15px 20px;
+            overflow-x: auto;
+            background: var(--bg-dark);
+        }
+        .tab-btn {
+            padding: 10px 20px;
+            border-radius: 12px;
+            background: var(--bg-card);
+            color: var(--text-dim);
+            border: 1px solid transparent;
+            cursor: pointer;
+            transition: 0.3s;
+            white-space: nowrap;
+        }
+        .tab-btn.active {
+            background: var(--primary);
+            color: white;
+            box-shadow: 0 4px 15px rgba(245, 158, 11, 0.3);
+        }
+
+        /* Content Areas */
+        .content-section { display: none; padding: 20px; animation: fadeIn 0.4s ease-out; }
+        .content-section.active { display: block; }
+
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* Stats Grid */
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 15px; margin-bottom: 25px; }
+        .stat-card {
+            background: var(--bg-card);
+            padding: 20px;
+            border-radius: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            text-align: center;
+        }
+        .stat-val { font-size: 1.8rem; font-weight: 700; color: var(--primary); margin: 5px 0; }
+        .stat-lbl { font-size: 0.8rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 1px; }
+
+        /* Orders List */
+        .order-card {
+            background: var(--bg-card);
+            padding: 15px;
+            border-radius: 16px;
+            margin-bottom: 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-left: 4px solid var(--primary);
+        }
+        .order-info h3 { font-size: 1rem; margin-bottom: 4px; }
+        .order-info p { font-size: 0.8rem; color: var(--text-dim); }
+        .btn-done {
+            background: var(--success);
+            color: white;
+            border: none;
+            padding: 10px 18px;
+            border-radius: 10px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        /* Settings Form */
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; color: var(--text-dim); margin-bottom: 8px; font-size: 0.9rem; }
+        input, textarea {
+            width: 100%;
+            padding: 12px;
+            border-radius: 10px;
+            background: #0f172a;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: white;
+            font-size: 1rem;
+        }
+        .btn-save {
+            width: 100%;
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 15px;
+            border-radius: 12px;
+            font-size: 1.1rem;
+            font-weight: 700;
+            margin-top: 10px;
+            cursor: pointer;
+        }
+
+        .loading-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: var(--bg-dark); display: flex; align-items: center; justify-content: center; z-index: 1000;
+        }
+        .spinner { width: 40px; height: 40px; border: 4px solid rgba(255,255,255,0.1); border-top-color: var(--primary); border-radius: 50%; animation: spin 1s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+
+<div id="loading" class="loading-overlay"><div class="spinner"></div></div>
+
+<header>
+    <div class="logo">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path></svg>
+        <span>Club Panel</span>
+    </div>
+    <div class="club-name" id="clubName">Loading...</div>
+</header>
+
+<div class="tabs">
+    <button class="tab-btn active" onclick="showTab('dashboard')">Дашборд</button>
+    <button class="tab-btn" onclick="showTab('orders')">Очередь Бара</button>
+    <button class="tab-btn" onclick="showTab('settings')">Настройки</button>
+    <button class="tab-btn" onclick="showTab('audit')">Аудит</button>
+</div>
+
+<!-- SECTION: Dashboard -->
+<div id="dashboard" class="content-section active">
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-lbl">Выручка (Сегодня)</div>
+            <div class="stat-val" id="statRevenue">0</div>
+            <div class="stat-lbl" style="font-size: 0.6rem;">UZS</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-lbl">Брони (Сегодня)</div>
+            <div class="stat-val" id="statBookings">0</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-lbl">Заказы в Баре</div>
+            <div class="stat-val" id="statOrders">0</div>
+        </div>
+    </div>
+    <canvas id="dailyChart" style="width:100%; height:200px; background: var(--bg-card); border-radius: 20px; padding: 15px;"></canvas>
+</div>
+
+<!-- SECTION: Bar Orders -->
+<div id="orders" class="content-section">
+    <h2 style="margin-bottom: 20px; font-size: 1.2rem;">Ожидающие заказы</h2>
+    <div id="ordersList">
+        <!-- Orders will be injected here -->
+        <p style="text-align: center; color: var(--text-dim); padding: 40px;">Нет активных заказов</p>
+    </div>
+</div>
+
+<!-- SECTION: Settings -->
+<div id="settings" class="content-section">
+    <h2 style="margin-bottom: 20px; font-size: 1.2rem;">Управление клубом</h2>
+    <div class="stat-card" style="text-align: left;">
+        <div class="form-group">
+            <label>Описание клуба</label>
+            <textarea id="editDesc" rows="4" placeholder="Введите описание для игроков..."></textarea>
+        </div>
+        <div class="form-group">
+            <label>Ссылка на фото (URL)</label>
+            <input type="text" id="editImage" placeholder="https://example.com/club.jpg">
+        </div>
+        <div class="form-group">
+            <label>Скорость Wi-Fi</label>
+            <input type="text" id="editWifi" placeholder="100 Mbps">
+        </div>
+        <button class="btn-save" onclick="saveSettings()">Сохранить изменения</button>
+    </div>
+</div>
+
+<!-- SECTION: Audit -->
+<div id="audit" class="content-section">
+    <div class="stat-card" style="background: linear-gradient(135deg, #1e293b, #0f172a); border: 1px solid var(--primary);">
+        <h2 style="color: var(--primary); margin-bottom: 15px;">Умный Аудит (iCafe)</h2>
+        <p style="color: var(--text-dim); font-size: 0.9rem; margin-bottom: 20px;">
+            Сравнение данных Digital Arena с логами iCafe Cloud для поиска несоответствий и "теневой" выручки.
+        </p>
+        <button class="btn-save" style="background: #334155; border: 1px solid var(--primary); color: var(--primary);" onclick="runAudit()">
+            Запустить аудит сейчас
+        </button>
+    </div>
+</div>
+
+<script>
+    // Initialize Telegram WebApp
+    const tg = window.Telegram?.WebApp;
+    if(tg) {
+        tg.expand();
+        tg.headerColor = '#1e293b';
+    }
+
+    // Auth Header (In real app, use tg_id from WebApp.initDataUnsafe)
+    const adminTgId = 123456789; // Mock for now, should get from WebApp initData
+
+    async function fetchData(endpoint) {
+        try {
+            const resp = await fetch(`/api${endpoint}`, {
+                headers: { 'X-Admin-Tg-Id': adminTgId.toString() }
+            });
+            return await resp.json();
+        } catch (e) {
+            console.error("Fetch failed", e);
+            return null;
+        }
+    }
+
+    function showTab(tabId) {
+        document.querySelectorAll('.content-section').forEach(s => s.classList.remove('active'));
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.getElementById(tabId).classList.add('active');
+        event.target.classList.add('active');
+        
+        if (tabId === 'orders') loadOrders();
+        if (tabId === 'dashboard') loadStats();
+    }
+
+    async function loadStats() {
+        const stats = await fetchData('/club-admin/stats');
+        if (stats) {
+            document.getElementById('statRevenue').innerText = stats.revenue_today.toLocaleString();
+            document.getElementById('statBookings').innerText = stats.bookings_today;
+            document.getElementById('statOrders').innerText = stats.pending_orders;
+        }
+    }
+
+    async function loadOrders() {
+        const orders = await fetchData('/club-admin/orders');
+        const list = document.getElementById('ordersList');
+        if (!orders || orders.length === 0) {
+            list.innerHTML = '<p style="text-align: center; color: var(--text-dim); padding: 40px;">Нет активных заказов</p>';
+            return;
+        }
+
+        list.innerHTML = orders.map(o => `
+            <div class="order-card">
+                <div class="order-info">
+                    <h3>${o.item_name} x${o.quantity}</h3>
+                    <p>ПК: ${o.computer_name} | ${new Date(o.created_at).toLocaleTimeString()}</p>
+                </div>
+                <button class="btn-done" onclick="completeOrder(${o.id})">Готово</button>
+            </div>
+        `).join('');
+    }
+
+    async function completeOrder(id) {
+        const res = await fetch(`/api/club-admin/orders/${id}/complete`, {
+            method: 'POST',
+            headers: { 'X-Admin-Tg-Id': adminTgId.toString() }
+        });
+        if (res.ok) loadOrders();
+    }
+
+    async function saveSettings() {
+        const data = {
+            description: document.getElementById('editDesc').value,
+            image_url: document.getElementById('editImage').value,
+            wifi_speed: document.getElementById('editWifi').value
+        };
+        const res = await fetch('/api/club-admin/info', {
+            method: 'PATCH',
+            headers: { 
+                'Content-Type': 'application/json',
+                'X-Admin-Tg-Id': adminTgId.toString() 
+            },
+            body: JSON.stringify(data)
+        });
+        if (res.ok) alert("Настройки сохранены!");
+    }
+
+    function runAudit() {
+        alert("Запрос на аудит отправлен. Результаты появятся в истории.");
+    }
+
+    window.onload = async () => {
+        const me = await fetchData('/club-admin/me');
+        if(me) document.getElementById('clubName').innerText = me.club_name;
+        
+        await loadStats();
+        document.getElementById('loading').style.display = 'none';
+
+        // Fake Chart
+        const ctx = document.getElementById('dailyChart').getContext('2d');
+        new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: ['10:00', '12:00', '14:00', '16:00', '18:00', '20:00', '22:00'],
+                datasets: [{
+                    label: 'Загрузка ПК',
+                    data: [12, 19, 25, 22, 30, 45, 40],
+                    borderColor: '#f59e0b',
+                    tension: 0.4,
+                    fill: true,
+                    backgroundColor: 'rgba(245, 158, 11, 0.1)'
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: { legend: { display: false } },
+                scales: { y: { display: false }, x: { grid: { display: false } } }
+            }
+        });
+    };
+</script>
+</body>
+</html>
